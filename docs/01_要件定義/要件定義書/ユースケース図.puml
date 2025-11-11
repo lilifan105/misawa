@@ -1,0 +1,39 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "一般ユーザー" as User
+actor "投稿者" as Editor
+actor "承認者" as Approver
+actor "管理者" as Admin
+
+rectangle "文書管理システム" {
+  usecase "UC-01: 文書を検索する" as UC01
+  usecase "UC-02: 文書を閲覧する" as UC02
+  usecase "UC-03: 文書を新規登録する" as UC03
+  usecase "UC-04: 文書を編集する" as UC04
+  usecase "UC-05: 文書を承認する" as UC05
+  usecase "UC-06: 文書を削除する" as UC06
+  usecase "UC-07: 文書公開状況を管理する" as UC07
+}
+
+User --> UC01
+User --> UC02
+
+Editor --> UC01
+Editor --> UC02
+Editor --> UC03
+Editor --> UC04
+
+Approver --> UC01
+Approver --> UC02
+Approver --> UC05
+
+Admin --> UC01
+Admin --> UC02
+Admin --> UC03
+Admin --> UC04
+Admin --> UC06
+Admin --> UC07
+
+@enduml

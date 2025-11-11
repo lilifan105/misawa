@@ -1,0 +1,77 @@
+@startuml
+entity "文書マスタ" as Document {
+  * 文書ID : 数値 <<PK>>
+  --
+  * 文書番号 : 文字列(20)
+  * タイトル : 文字列(200)
+  * カテゴリ : 文字列(20)
+  * 重要度 : 文字列(10)
+  * ステータス : 文字列(20)
+  * 発番部署 : 文字列(100)
+  * 作成者ID : 数値 <<FK>>
+  * 作成日時 : 日時
+  * 公開開始日 : 日付
+  公開終了日 : 日付
+  * 版番号 : 数値
+}
+
+entity "添付ファイル" as Attachment {
+  * ファイルID : 数値 <<PK>>
+  --
+  * 文書ID : 数値 <<FK>>
+  * ファイル名 : 文字列(255)
+  * ファイルパス : 文字列(500)
+  * ファイルサイズ : 数値
+  * 表示順 : 数値
+}
+
+entity "ユーザーマスタ" as User {
+  * ユーザーID : 数値 <<PK>>
+  --
+  * ログインID : 文字列(50)
+  * 氏名 : 文字列(100)
+  * 部署コード : 文字列(20)
+  * 役割 : 文字列(20)
+  * メールアドレス : 文字列(255)
+}
+
+entity "承認履歴" as Approval {
+  * 承認ID : 数値 <<PK>>
+  --
+  * 文書ID : 数値 <<FK>>
+  * 承認者ID : 数値 <<FK>>
+  * 承認日時 : 日時
+  * 承認結果 : 文字列(20)
+  コメント : 文字列(500)
+}
+
+entity "閲覧履歴" as ViewHistory {
+  * 履歴ID : 数値 <<PK>>
+  --
+  * 文書ID : 数値 <<FK>>
+  * ユーザーID : 数値 <<FK>>
+  * 閲覧日時 : 日時
+  * 既読フラグ : 真偽値
+}
+
+entity "文書版管理" as Version {
+  * 版ID : 数値 <<PK>>
+  --
+  * 文書ID : 数値 <<FK>>
+  * 版番号 : 数値
+  * 改訂日時 : 日時
+  * 改訂者ID : 数値 <<FK>>
+  改訂内容 : 文字列(500)
+  * 旧ファイルパス : 文字列(500)
+}
+
+Document ||--o{ Attachment
+Document ||--o{ Approval
+Document ||--o{ ViewHistory
+Document ||--o{ Version
+User ||--o{ Document
+User ||--o{ Approval
+User ||--o{ ViewHistory
+User ||--o{ Version
+
+@enduml

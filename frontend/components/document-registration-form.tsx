@@ -1,0 +1,453 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+export function DocumentRegistrationForm() {
+  const [activeTab, setActiveTab] = useState<"attributes" | "display">("attributes")
+  const [selectedUrgency, setSelectedUrgency] = useState("normal")
+  const [showInNews, setShowInNews] = useState(false)
+  const [displayInOrder, setDisplayInOrder] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const router = useRouter()
+
+  const handleComplete = () => {
+    setShowCompleteModal(true)
+  }
+
+  const handleConfirmComplete = () => {
+    setShowCompleteModal(false)
+    router.push("/confirm")
+  }
+
+  const handleCancel = () => {
+    setShowCancelModal(true)
+  }
+
+  const handleConfirmCancel = () => {
+    setShowCancelModal(false)
+    router.push("/")
+  }
+
+  return (
+    <>
+      <div className="flex flex-col flex-1 overflow-hidden">
+        {/* Header with tabs */}
+        <div className="border-b bg-white flex-shrink-0">
+          <div className="flex items-center justify-between px-6">
+            <div className="flex">
+              <button
+                onClick={() => setActiveTab("attributes")}
+                className={`px-6 py-3 font-medium text-sm transition-all duration-300 border-b-2 ${
+                  activeTab === "attributes"
+                    ? "border-blue-600 text-blue-600 bg-blue-50"
+                    : "border-transparent text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                }`}
+              >
+                属性
+              </button>
+              <button
+                onClick={() => setActiveTab("display")}
+                className={`px-6 py-3 font-medium text-sm transition-all duration-300 border-b-2 ${
+                  activeTab === "display"
+                    ? "border-blue-600 text-blue-600 bg-blue-50"
+                    : "border-transparent text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+                }`}
+              >
+                表示先
+              </button>
+            </div>
+            <div className="py-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-blue-600 bg-transparent transition-all hover:scale-105"
+              >
+                よくある質問
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content - Scrollable area */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-7xl mx-auto p-6">
+            <div className="bg-white border border-gray-300 rounded-lg p-6 animate-in fade-in duration-500">
+              {activeTab === "attributes" && (
+                <>
+                  <div className="mb-6">
+                    <div className="flex items-center gap-4">
+                      <Label className="text-sm font-medium">文書種類</Label>
+                      <Select>
+                        <SelectTrigger className="w-64">
+                          <SelectValue placeholder="選択してください" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="type1">通知</SelectItem>
+                          <SelectItem value="type2">報告</SelectItem>
+                          <SelectItem value="type3">申請</SelectItem>
+                          <SelectItem value="type4">その他</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Section Title */}
+                  <h2 className="text-lg font-semibold mb-4 pb-2 bg-gray-100 px-4 py-2 -mx-6 border-y border-gray-300">
+                    基本情報
+                  </h2>
+
+                  {/* Required Fields Alert */}
+                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                    <p className="text-sm text-yellow-800">※ 印は必須項目は必ず入力してください。</p>
+                  </div>
+
+                  {/* Two Column Layout */}
+                  <div className="grid grid-cols-2 gap-8 mb-8">
+                    {/* Left Column */}
+                    <div className="space-y-4">
+                      {/* Document Number */}
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">
+                          発信番号・部署 <span className="text-red-500">※</span>
+                        </Label>
+                        <div className="flex-1 flex items-center gap-2">
+                          <Input className="flex-1" />
+                          <span className="text-sm">発</span>
+                          <Input className="w-20" />
+                          <span className="text-sm">号</span>
+                          <Button variant="outline" size="sm" className="bg-blue-500 text-white hover:bg-blue-600">
+                            発番確認
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Title */}
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">
+                          タイトル <span className="text-red-500">※</span>
+                        </Label>
+                        <Input className="flex-1" />
+                      </div>
+
+                      {/* Department - Bu */}
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">
+                          発信部門・部 <span className="text-red-500">※</span>
+                        </Label>
+                        <Input className="flex-1" />
+                      </div>
+
+                      {/* Department - Group */}
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">発信部門・グループ</Label>
+                        <Input className="flex-1" />
+                      </div>
+
+                      {/* Person in Charge */}
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">
+                          担当 <span className="text-red-500">※</span>
+                        </Label>
+                        <Input className="flex-1" />
+                      </div>
+
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">
+                          掲示期間 <span className="text-red-500">※</span>
+                        </Label>
+                        <div className="flex-1 flex items-center gap-2">
+                          <Input type="date" className="w-40" />
+                          <span className="mx-2">〜</span>
+                          <Input type="date" className="w-40" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Column */}
+                    <div className="space-y-4">
+                      {/* Creator Name */}
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">作成者名</Label>
+                        <div className="flex-1 bg-gray-100 p-2 rounded text-sm">作成者名</div>
+                      </div>
+
+                      {/* Creation Date */}
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">作成日</Label>
+                        <div className="flex-1 bg-gray-100 p-2 rounded text-sm">2025年 04月 28日</div>
+                      </div>
+
+                      {/* Update Date */}
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">更新日</Label>
+                        <div className="flex-1 bg-gray-100 p-2 rounded text-sm">2025年 04月 28日</div>
+                      </div>
+
+                      {/* Contact (Internal) */}
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">連絡先(内線)</Label>
+                        <Input className="flex-1" />
+                      </div>
+
+                      {/* Contact (External) */}
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">
+                          連絡先(外線) <span className="text-red-500">※</span>
+                        </Label>
+                        <Input className="flex-1" />
+                      </div>
+
+                      {/* Email */}
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">e-mail</Label>
+                        <Input type="email" className="flex-1" />
+                      </div>
+
+                      {/* Distribution Target */}
+                      <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                        <Label className="w-32 pt-2 text-sm font-medium">配布対象</Label>
+                        <textarea className="flex-1 border rounded-md p-2 min-h-[100px]" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Document Attributes Section */}
+                  <div className="border-t-2 border-gray-300 pt-6 space-y-6">
+                    {/* Urgency Level */}
+                    <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                      <Label className="w-32 pt-2 text-sm font-medium">需要度</Label>
+                      <div className="flex-1 flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                          <Checkbox id="important" />
+                          <label htmlFor="important" className="text-sm">
+                            重要
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox id="urgent" />
+                          <label htmlFor="urgent" className="text-sm">
+                            至急
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Disclosure Range */}
+                    <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                      <Label className="w-32 pt-2 text-sm font-medium">開示範囲</Label>
+                      <div className="flex-1">
+                        <RadioGroup value={selectedUrgency} onValueChange={setSelectedUrgency}>
+                          <div className="space-y-3">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <RadioGroupItem value="all" id="all" />
+                                <label htmlFor="all" className="text-sm">
+                                  部全
+                                </label>
+                              </div>
+                              <div className="text-xs text-blue-600 ml-6 mt-1">・M部署全員しかみられない</div>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <RadioGroupItem value="group" id="group" />
+                                <label htmlFor="group" className="text-sm">
+                                  班全
+                                </label>
+                              </div>
+                              <div className="text-xs text-blue-600 ml-6 mt-1">・M班署全員しかみられない</div>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <RadioGroupItem value="mp-registered" id="mp-registered" />
+                                <label htmlFor="mp-registered" className="text-sm">
+                                  MP登録者
+                                </label>
+                              </div>
+                              <div className="text-xs text-blue-600 ml-6 mt-1">・M作業者のみ(内容登録者と配布対象)</div>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <RadioGroupItem value="city-mp" id="city-mp" />
+                                <label htmlFor="city-mp" className="text-sm">
+                                  出向部署MP登録者
+                                </label>
+                              </div>
+                              <div className="text-xs text-blue-600 ml-6 mt-1">・M作業者のみ(内容登録者と配布対象)</div>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <RadioGroupItem value="all-mp" id="all-mp" />
+                                <label htmlFor="all-mp" className="text-sm">
+                                  M部署MP登録者全員
+                                </label>
+                              </div>
+                              <div className="text-xs text-blue-600 ml-6 mt-1">
+                                ・M部署全員と配布対象(内容登録者と配布対象と関係者)
+                              </div>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <RadioGroupItem value="middle-manager" id="middle-manager" />
+                                <label htmlFor="middle-manager" className="text-sm">
+                                  中間管理者全員
+                                </label>
+                              </div>
+                              <div className="text-xs text-blue-600 ml-6 mt-1">
+                                ・M中間管理者全員と配布対象(内容登録者と配布対象と関係者)
+                              </div>
+                            </div>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                    </div>
+
+                    {/* Display in Order */}
+                    <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                      <Label className="w-32 pt-2 text-sm font-medium">新着順に表示する</Label>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="display-order"
+                            checked={displayInOrder}
+                            onCheckedChange={(checked) => setDisplayInOrder(checked as boolean)}
+                          />
+                          <label htmlFor="display-order" className="text-sm">
+                            表示
+                          </label>
+                        </div>
+                        <div className="text-xs text-blue-600 ml-6 mt-1">
+                          ※一覧の上から5つまで表示される場合は表示される
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* News Display */}
+                    <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                      <Label className="w-32 pt-2 text-sm font-medium">お知らせ表示</Label>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="show-news"
+                            checked={showInNews}
+                            onCheckedChange={(checked) => setShowInNews(checked as boolean)}
+                          />
+                          <label htmlFor="show-news" className="text-sm">
+                            表示
+                          </label>
+                        </div>
+                        <div className="text-xs text-blue-600 ml-6 mt-1">
+                          ※一覧の上から5つまで表示される場合は表示される
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* File Upload */}
+                    <div className="flex items-start gap-4 pb-4 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                      <Label className="w-32 pt-2 text-sm font-medium">お知らせ画像登録</Label>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-4">
+                          <Button variant="outline" size="sm">
+                            ファイルの選択
+                          </Button>
+                          <span className="text-sm text-gray-500">ファイルが選択されていません</span>
+                        </div>
+                        <div className="mt-2 text-xs text-blue-600 space-y-1">
+                          <p>画像の形式はjpeg、gif、pngのみです。</p>
+                          <p>画像のサイズは1MB以下にしてください。</p>
+                          <p>画像の大きさは横幅1000px以下、縦幅1000px以下にしてください。</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {activeTab === "display" && (
+                <div className="space-y-4 animate-in fade-in duration-500">
+                  <h3 className="text-base font-semibold mb-4">表示先設定</h3>
+                  {/* Additional display settings can be added here */}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t bg-white flex-shrink-0 px-6 py-4">
+          <div className="flex justify-center gap-4">
+            <Button
+              onClick={handleCancel}
+              variant="outline"
+              className="px-12 py-3 text-base border-gray-400 text-gray-700 hover:bg-gray-100 bg-transparent transition-all duration-200 hover:scale-105 active:scale-95"
+            >
+              取り消し
+            </Button>
+            <Button
+              onClick={handleComplete}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-3 text-base transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-lg"
+            >
+              完了
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Cancel Confirmation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-bold mb-4">確認</h3>
+            <p className="text-gray-600 mb-6">入力内容を破棄してトップページに戻りますか?</p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowCancelModal(false)}
+                className="transition-all duration-200 hover:scale-105"
+              >
+                キャンセル
+              </Button>
+              <Button
+                onClick={handleConfirmCancel}
+                className="bg-blue-600 hover:bg-blue-700 transition-all duration-200 hover:scale-105"
+              >
+                OK
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Confirmation Modal */}
+      {showCompleteModal && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl animate-in fade-in zoom-in duration-200">
+            <h3 className="text-lg font-bold mb-4">確認</h3>
+            <p className="text-gray-600 mb-6">入力内容を確認画面に進みますか?</p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowCompleteModal(false)}
+                className="transition-all duration-200 hover:scale-105"
+              >
+                キャンセル
+              </Button>
+              <Button
+                onClick={handleConfirmComplete}
+                className="bg-blue-600 hover:bg-blue-700 transition-all duration-200 hover:scale-105"
+              >
+                OK
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
