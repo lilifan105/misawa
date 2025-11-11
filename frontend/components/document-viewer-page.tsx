@@ -2,10 +2,12 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ZoomIn, ZoomOut, Download, Printer, ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
+import { getDocument, deleteDocument as apiDeleteDocument } from "@/lib/api"
+import { useRouter } from "next/navigation"
 
 interface RelatedDocument {
   id: number
@@ -20,12 +22,30 @@ interface PageThumbnail {
 }
 
 export function DocumentViewerPage({ documentId }: { documentId: string }) {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<"document" | "attributes">("document")
   const [currentPage, setCurrentPage] = useState(1)
   const [zoom, setZoom] = useState(100)
   const [pageInput, setPageInput] = useState("1")
   const [hoveredThumbnail, setHoveredThumbnail] = useState<number | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [document, setDocument] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchDocument = async () => {
+      try {
+        setLoading(true)
+        const doc = await getDocument(documentId)
+        setDocument(doc)
+      } catch (error) {
+        console.error('文書の取得に失敗:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchDocument()
+  }, [documentId])
 
   const totalPages = 15
 
@@ -76,31 +96,48 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
     }
   }
 
-  const documentAttributes = {
-    文書種類: "技術情報",
-    タイトル: "公式大会予定表（中央地区5月～6月）",
-    作成日: "2025年4月28日",
-    表示終了日: "2025年6月30日",
-    発番部署: "本部",
-    発番番号: "A001",
-    部署: "管理部",
-    作成者: "山田太郎",
-    承認者: "佐藤次郎",
-    カテゴリ: "メーカー発信文書 > 技術情報",
-    ステータス: "公開中",
-    アクセス権限: "全社員",
+  const documentAttributes = document ? {
+    文書種類: document.type || '-',
+    タイトル: document.title || '-',
+    作成日: document.date || '-',
+    表示終了日: document.endDate || '-',
+    発番部署: document.department || '-',
+    発番番号: document.number || '-',
+    部署: document.division || '-',
+    ステータス: document.status || '-',
+  } : {}
+
+  const handleDelete = async () => {
+    try {
+      await apiDeleteDocument(documentId)
+      setShowDeleteModal(false)
+      router.push('/')
+    } catch (error) {
+      console.error('文書の削除に失敗:', error)
+      alert('文書の削除に失敗しました')
+    }
   }
 
-  const handleDelete = () => {
-    console.log("文書を削除")
-    setShowDeleteModal(false)
-    window.location.href = "/"
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-gray-500">読み込み中...</div>
+      </div>
+    )
+  }
+
+  if (!document) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-gray-500">文書が見つかりません</div>
+      </div>
+    )
   }
 
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <div className="bg-white border-b px-8 py-3 flex items-center justify-between flex-shrink-0">
-        <h2 className="text-gray-800 font-bold text-lg">メーカー発信文書</h2>
+        <h2 className="text-gray-800 font-bold text-lg">{document.title || '文書詳細'}</h2>
       </div>
 
       <div className="bg-white border-b flex gap-1 px-8 pt-4 flex-shrink-0 justify-between items-end">
@@ -321,7 +358,7 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
                   }}
                 >
                   <div className="p-12 text-gray-700">
-                    <h1 className="text-2xl font-bold mb-6">公式大会予定表（中央地区5月～6月）</h1>
+                    <h1 className="text-2xl font-bold mb-6">{document.title}</h1>
                     <p className="mb-4">ページ {currentPage}</p>
                     <div className="space-y-4 text-sm leading-relaxed">
                       <p>
@@ -332,12 +369,12 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
                       </p>
                       <p>拡大率：{zoom}%</p>
                       <div className="mt-8 p-4 bg-gray-50 rounded">
-                        <h3 className="font-bold mb-2">サンプルコンテンツ</h3>
+                        <h3 className="font-bold mb-2">文書情報</h3>
                         <ul className="list-disc list-inside space-y-1">
-                          <li>大会名：中央地区春季大会</li>
-                          <li>開催期間：2025年5月1日～6月30日</li>
-                          <li>会場：中央総合体育館</li>
-                          <li>参加チーム数：32チーム</li>
+                          <li>文書種類：{document.type}</li>
+                          <li>発番部署：{document.department}</li>
+                          <li>発番番号：{document.number}</li>
+                          <li>部署：{document.division}</li>
                         </ul>
                       </div>
                     </div>

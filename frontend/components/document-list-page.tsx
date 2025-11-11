@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ChevronRight, ChevronDown, ChevronsLeft, ChevronsRight, MoreVertical, Edit, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { getDocuments, deleteDocument as apiDeleteDocument } from "@/lib/api"
 
 interface Category {
   id: string
@@ -118,27 +119,34 @@ export function DocumentListPage() {
     },
   ]
 
-  const allDocuments: Document[] = Array.from({ length: 100 }, (_, i) => ({
-    id: i + 1,
-    type: ["通達", "製品情報", "技術情報", "規定", "お知らせ", "報告書", "マニュアル"][i % 7],
-    date: `25.04.${String(28 - (i % 28)).padStart(2, "0")}`,
-    title: [
-      "公式大会予定表（中央地区5月～6月）",
-      "システムメンテナンスのお知らせ",
-      "新製品リリースについて",
-      "セキュリティパッチ適用のお願い",
-      "就業規則の改定について",
-      "社内イベント開催のご案内",
-      "第一四半期業績報告",
-      "データベース最適化手順書",
-      "製品カタログ更新版",
-      "夏季休暇取得について",
-    ][i % 10],
-    endDate: `25.${String((i % 12) + 1).padStart(2, "0")}.30`,
-    department: ["本部", "情報システム部", "営業部", "人事部", "総務部", "経理部"][i % 6],
-    number: `${String.fromCharCode(65 + (i % 26))}${String(i + 1).padStart(3, "0")}`,
-    division: ["管理部", "技術部", "営業部", "人事部", "総務部", "経理部"][i % 6],
-  }))
+  const [allDocuments, setAllDocuments] = useState<Document[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // 文書一覧を取得
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        setLoading(true)
+        const response = await getDocuments()
+        const docs = response.documents.map((doc: any) => ({
+          id: parseInt(doc.id),
+          type: doc.type || '未分類',
+          date: doc.date || '',
+          title: doc.title || '無題',
+          endDate: doc.endDate || '',
+          department: doc.department || '',
+          number: doc.number || '',
+          division: doc.division || ''
+        }))
+        setAllDocuments(docs)
+      } catch (error) {
+        console.error('文書一覧の取得に失敗:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchDocuments()
+  }, [])
 
   const itemsPerPage = 10
   const totalPages = Math.ceil(allDocuments.length / itemsPerPage)
@@ -223,11 +231,17 @@ export function DocumentListPage() {
     return buttons
   }
 
-  const handleDelete = (docId: number) => {
-    console.log(`文書 ${docId} を削除`)
-    setShowDeleteModal(false)
-    setDocumentToDelete(null)
-    setActiveActionMenu(null)
+  const handleDelete = async (docId: number) => {
+    try {
+      await apiDeleteDocument(String(docId))
+      setAllDocuments(prev => prev.filter(doc => doc.id !== docId))
+      setShowDeleteModal(false)
+      setDocumentToDelete(null)
+      setActiveActionMenu(null)
+    } catch (error) {
+      console.error('文書の削除に失敗:', error)
+      alert('文書の削除に失敗しました')
+    }
   }
 
   const handleEdit = (docId: number) => {
@@ -339,6 +353,13 @@ export function DocumentListPage() {
 
         <div className="flex-1 bg-gray-50 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6">
+            {loading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-gray-500">読み込み中...</div>
+              </div>
+            )}
+            {!loading && (
+            <>
             <div className="bg-white rounded-lg border p-4 mb-4 animate-in fade-in slide-in-from-top-4 duration-300">
               <div className="flex items-center gap-3">
                 <label className="text-sm font-medium whitespace-nowrap">タイトル</label>
@@ -422,6 +443,8 @@ export function DocumentListPage() {
                 </table>
               </div>
             </div>
+            </>
+            )}
           </div>
 
           <div className="bg-white border-t px-6 py-3 flex items-center justify-between flex-shrink-0">

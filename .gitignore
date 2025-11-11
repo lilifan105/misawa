@@ -13,6 +13,7 @@ build/
 # Environment variables
 .env
 .env*.local
+!.env.local.example
 
 # IDE
 .vscode/
@@ -56,3 +57,20 @@ docs/**/*.png
 # Build artifacts
 dist/
 *.tsbuildinfo
+
+# Terraform
+infrastructure/.terraform/
+infrastructure/.terraform.lock.hcl
+infrastructure/terraform.tfstate
+infrastructure/terraform.tfstate.backup
+infrastructure/*.tfvars
+infrastructure/.terraform.tfstate.lock.info
+
+# Lambda packages
+backend/lambda/*.zip
+backend/functions/*.zip
+backend/layers/*.zip
+
+# Environment variables
+frontend/.env.local
+frontend/.env.production.local

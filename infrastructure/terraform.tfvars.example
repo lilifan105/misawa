@@ -1,0 +1,9 @@
+aws_region       = "ap-northeast-1"
+project_name     = "misawa"
+environment      = "dev"
+callback_urls    = ["http://localhost:3000", "https://your-domain.com"]
+logout_urls      = ["http://localhost:3000", "https://your-domain.com"]
+cors_origins     = ["http://localhost:3000", "https://your-domain.com"]
+external_api_key = "your-secure-api-key-here"
+repository_url   = "https://github.com/your-org/misawa"
+branch_name      = "main"

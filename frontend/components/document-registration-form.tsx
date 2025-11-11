@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { createDocument } from "@/lib/api"
 
 export function DocumentRegistrationForm() {
   const [activeTab, setActiveTab] = useState<"attributes" | "display">("attributes")
@@ -16,15 +17,34 @@ export function DocumentRegistrationForm() {
   const [displayInOrder, setDisplayInOrder] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [showCompleteModal, setShowCompleteModal] = useState(false)
+  const [formData, setFormData] = useState({
+    type: '',
+    title: '',
+    department: '',
+    number: '',
+    division: '',
+    date: '',
+    endDate: ''
+  })
   const router = useRouter()
 
   const handleComplete = () => {
+    if (!formData.title || !formData.department) {
+      alert('必須項目を入力してください')
+      return
+    }
     setShowCompleteModal(true)
   }
 
-  const handleConfirmComplete = () => {
-    setShowCompleteModal(false)
-    router.push("/confirm")
+  const handleConfirmComplete = async () => {
+    try {
+      await createDocument(formData)
+      setShowCompleteModal(false)
+      router.push("/complete")
+    } catch (error) {
+      console.error('文書の登録に失敗:', error)
+      alert('文書の登録に失敗しました')
+    }
   }
 
   const handleCancel = () => {
@@ -85,15 +105,15 @@ export function DocumentRegistrationForm() {
                   <div className="mb-6">
                     <div className="flex items-center gap-4">
                       <Label className="text-sm font-medium">文書種類</Label>
-                      <Select>
+                      <Select value={formData.type} onValueChange={(value) => setFormData({...formData, type: value})}>
                         <SelectTrigger className="w-64">
                           <SelectValue placeholder="選択してください" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="type1">通知</SelectItem>
-                          <SelectItem value="type2">報告</SelectItem>
-                          <SelectItem value="type3">申請</SelectItem>
-                          <SelectItem value="type4">その他</SelectItem>
+                          <SelectItem value="通達">通達</SelectItem>
+                          <SelectItem value="製品情報">製品情報</SelectItem>
+                          <SelectItem value="技術情報">技術情報</SelectItem>
+                          <SelectItem value="規定">規定</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -134,7 +154,7 @@ export function DocumentRegistrationForm() {
                         <Label className="w-32 pt-2 text-sm font-medium">
                           タイトル <span className="text-red-500">※</span>
                         </Label>
-                        <Input className="flex-1" />
+                        <Input className="flex-1" value={formData.title} onChange={(e) => setFormData({...formData, title: e.target.value})} />
                       </div>
 
                       {/* Department - Bu */}
@@ -142,13 +162,13 @@ export function DocumentRegistrationForm() {
                         <Label className="w-32 pt-2 text-sm font-medium">
                           発信部門・部 <span className="text-red-500">※</span>
                         </Label>
-                        <Input className="flex-1" />
+                        <Input className="flex-1" value={formData.department} onChange={(e) => setFormData({...formData, department: e.target.value})} />
                       </div>
 
                       {/* Department - Group */}
                       <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
                         <Label className="w-32 pt-2 text-sm font-medium">発信部門・グループ</Label>
-                        <Input className="flex-1" />
+                        <Input className="flex-1" value={formData.division} onChange={(e) => setFormData({...formData, division: e.target.value})} />
                       </div>
 
                       {/* Person in Charge */}
@@ -164,9 +184,9 @@ export function DocumentRegistrationForm() {
                           掲示期間 <span className="text-red-500">※</span>
                         </Label>
                         <div className="flex-1 flex items-center gap-2">
-                          <Input type="date" className="w-40" />
+                          <Input type="date" className="w-40" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} />
                           <span className="mx-2">〜</span>
-                          <Input type="date" className="w-40" />
+                          <Input type="date" className="w-40" value={formData.endDate} onChange={(e) => setFormData({...formData, endDate: e.target.value})} />
                         </div>
                       </div>
                     </div>
