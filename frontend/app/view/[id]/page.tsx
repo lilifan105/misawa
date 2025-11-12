@@ -1,6 +1,12 @@
 import { SystemHeader } from "@/components/system-header"
 import { DocumentViewerPage } from "@/components/document-viewer-page"
 
+export function generateStaticParams() {
+  return []
+}
+
+export const dynamicParams = true
+
 export default function ViewDocumentPage({ params }: { params: { id: string } }) {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
