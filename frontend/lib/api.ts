@@ -2,9 +2,10 @@
 const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:3000/api'
 
 // 文書一覧取得
-export async function getDocuments(category?: string) {
+export async function getDocuments(params?: { category?: string; title?: string }) {
   const url = new URL(`${API_ENDPOINT}/documents`)
-  if (category) url.searchParams.append('category', category)
+  if (params?.category) url.searchParams.append('category', params.category)
+  if (params?.title) url.searchParams.append('title', params.title)
   
   const response = await fetch(url.toString())
   if (!response.ok) throw new Error('文書一覧の取得に失敗しました')

@@ -123,28 +123,33 @@ export function DocumentListPage() {
   const [loading, setLoading] = useState(true)
 
   // 文書一覧を取得
-  useEffect(() => {
-    const fetchDocuments = async () => {
-      try {
-        setLoading(true)
-        const response = await getDocuments()
-        const docs = response.documents.map((doc: any) => ({
-          id: doc.id,
-          type: doc.type || '未分類',
-          date: doc.date || '',
-          title: doc.title || '無題',
-          endDate: doc.endDate || '',
-          department: doc.department || '',
-          number: doc.number || '',
-          division: doc.division || ''
-        }))
-        setAllDocuments(docs)
-      } catch (error) {
-        console.error('文書一覧の取得に失敗:', error)
-      } finally {
-        setLoading(false)
-      }
+  const fetchDocuments = async (searchTitle?: string) => {
+    try {
+      setLoading(true)
+      const params: { title?: string } = {}
+      if (searchTitle) params.title = searchTitle
+      
+      const response = await getDocuments(params)
+      const docs = response.documents.map((doc: any) => ({
+        id: doc.id,
+        type: doc.type || '未分類',
+        date: doc.date || '',
+        title: doc.title || '無題',
+        endDate: doc.endDate || '',
+        department: doc.department || '',
+        number: doc.number || '',
+        division: doc.division || ''
+      }))
+      setAllDocuments(docs)
+      setCurrentPage(1) // 検索後は1ページ目に戻る
+    } catch (error) {
+      console.error('文書一覧の取得に失敗:', error)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     fetchDocuments()
   }, [])
 
@@ -369,18 +374,26 @@ export function DocumentListPage() {
                   className="flex-1 transition-all duration-200 focus:scale-[1.01]"
                   placeholder="タイトルで検索"
                 />
-                <Button className="bg-gray-500 hover:bg-gray-600 text-white px-6 transition-all duration-200 hover:scale-105 active:scale-95">
+                <Button 
+                  className="bg-gray-500 hover:bg-gray-600 text-white px-6 transition-all duration-200 hover:scale-105 active:scale-95"
+                  onClick={() => fetchDocuments(titleSearch)}
+                >
                   絞り込み
                 </Button>
                 <Button
                   variant="outline"
                   className="px-6 bg-transparent transition-all duration-200 hover:scale-105 active:scale-95"
+                  onClick={() => {
+                    setTitleSearch('')
+                    fetchDocuments()
+                  }}
                 >
                   全表示
                 </Button>
                 <Button
                   variant="outline"
                   className="px-6 bg-transparent transition-all duration-200 hover:scale-105 active:scale-95"
+                  onClick={() => fetchDocuments(titleSearch)}
                 >
                   更新
                 </Button>

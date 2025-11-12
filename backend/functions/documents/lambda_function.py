@@ -7,7 +7,7 @@ from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 logger = Logger()
-app = APIGatewayHttpResolver()
+app = APIGatewayHttpResolver(strip_prefixes=["/dev"])
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ.get('DOCUMENTS_TABLE', 'documents'))
@@ -28,6 +28,7 @@ def list_documents():
     
     クエリパラメータ:
         category (optional): カテゴリでフィルタリング
+        title (optional): タイトルで部分一致検索
     
     戻り値:
         documents: 文書リスト
@@ -36,9 +37,23 @@ def list_documents():
     params = app.current_event.query_string_parameters or {}
     
     scan_kwargs = {}
+    filter_expressions = []
+    expr_attr_values = {}
+    
+    # カテゴリフィルタ
     if params.get('category'):
-        scan_kwargs['FilterExpression'] = 'category = :cat'
-        scan_kwargs['ExpressionAttributeValues'] = {':cat': params['category']}
+        filter_expressions.append('category = :cat')
+        expr_attr_values[':cat'] = params['category']
+    
+    # タイトル検索（部分一致）
+    if params.get('title'):
+        filter_expressions.append('contains(title, :title)')
+        expr_attr_values[':title'] = params['title']
+    
+    # フィルタ式を結合
+    if filter_expressions:
+        scan_kwargs['FilterExpression'] = ' AND '.join(filter_expressions)
+        scan_kwargs['ExpressionAttributeValues'] = expr_attr_values
     
     result = table.scan(**scan_kwargs)
     items = [convert_decimals(item) for item in result.get('Items', [])]
@@ -46,7 +61,7 @@ def list_documents():
     logger.info(f"Retrieved {len(items)} documents")
     return {'documents': items, 'count': len(items)}
 
-@app.get("/documents/{id}")
+@app.get("/documents/<id>")
 def get_document(id: str):
     """
     文書詳細取得API
@@ -108,7 +123,7 @@ def create_document():
     
     return convert_decimals(item), 201
 
-@app.put("/documents/{id}")
+@app.put("/documents/<id>")
 def update_document(id: str):
     """
     文書更新API
@@ -147,7 +162,7 @@ def update_document(id: str):
     logger.info(f"Updated document: {id}")
     return convert_decimals(result['Attributes'])
 
-@app.delete("/documents/{id}")
+@app.delete("/documents/<id>")
 def delete_document(id: str):
     """
     文書削除API（物理削除）

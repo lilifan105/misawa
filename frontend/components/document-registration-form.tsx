@@ -29,22 +29,18 @@ export function DocumentRegistrationForm() {
   const router = useRouter()
 
   const handleComplete = () => {
-    if (!formData.title || !formData.department) {
-      alert('必須項目を入力してください')
+    if (!formData.type || !formData.title || !formData.department) {
+      alert('必須項目（文書種類、タイトル、発信部門）を入力してください')
       return
     }
     setShowCompleteModal(true)
   }
 
-  const handleConfirmComplete = async () => {
-    try {
-      await createDocument(formData)
-      setShowCompleteModal(false)
-      router.push("/complete")
-    } catch (error) {
-      console.error('文書の登録に失敗:', error)
-      alert('文書の登録に失敗しました')
-    }
+  const handleConfirmComplete = () => {
+    // 確認画面にデータを渡すためにセッションストレージに保存
+    sessionStorage.setItem('documentFormData', JSON.stringify(formData))
+    setShowCompleteModal(false)
+    router.push("/confirm")
   }
 
   const handleCancel = () => {
@@ -104,16 +100,22 @@ export function DocumentRegistrationForm() {
                 <>
                   <div className="mb-6">
                     <div className="flex items-center gap-4">
-                      <Label className="text-sm font-medium">文書種類</Label>
+                      <Label className="text-sm font-medium">文書種類 <span className="text-red-500">※</span></Label>
                       <Select value={formData.type} onValueChange={(value) => setFormData({...formData, type: value})}>
                         <SelectTrigger className="w-64">
                           <SelectValue placeholder="選択してください" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="通達">通達</SelectItem>
+                          <SelectItem value="連絡">連絡</SelectItem>
                           <SelectItem value="製品情報">製品情報</SelectItem>
                           <SelectItem value="技術情報">技術情報</SelectItem>
                           <SelectItem value="規定">規定</SelectItem>
+                          <SelectItem value="お知らせ">お知らせ</SelectItem>
+                          <SelectItem value="報告書">報告書</SelectItem>
+                          <SelectItem value="マニュアル">マニュアル</SelectItem>
+                          <SelectItem value="会議資料">会議資料</SelectItem>
+                          <SelectItem value="その他">その他</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -449,7 +451,7 @@ export function DocumentRegistrationForm() {
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl animate-in fade-in zoom-in duration-200">
             <h3 className="text-lg font-bold mb-4">確認</h3>
-            <p className="text-gray-600 mb-6">入力内容を確認画面に進みますか?</p>
+            <p className="text-gray-600 mb-6">入力内容を確認し、確認画面に進みますか？</p>
             <div className="flex gap-3 justify-end">
               <Button
                 variant="outline"
@@ -462,7 +464,7 @@ export function DocumentRegistrationForm() {
                 onClick={handleConfirmComplete}
                 className="bg-blue-600 hover:bg-blue-700 transition-all duration-200 hover:scale-105"
               >
-                OK
+                確認画面へ
               </Button>
             </div>
           </div>
