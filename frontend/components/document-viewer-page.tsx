@@ -8,6 +8,9 @@ import { Input } from "@/components/ui/input"
 import { ZoomIn, ZoomOut, Download, Printer, ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
 import { getDocument, deleteDocument as apiDeleteDocument } from "@/lib/api"
 import { useRouter } from "next/navigation"
+import dynamic from 'next/dynamic'
+
+const PDFViewer = dynamic(() => import('./pdf-viewer'), { ssr: false })
 
 interface RelatedDocument {
   id: number
@@ -31,6 +34,7 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [document, setDocument] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [pdfUrl] = useState<string>('/sample.pdf')
 
   useEffect(() => {
     const fetchDocument = async () => {
@@ -349,36 +353,15 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-auto p-6">
+              <div className="flex-1 overflow-auto bg-gray-100 flex items-center justify-center">
                 <div
-                  className="bg-white shadow-lg mx-auto transition-all duration-300"
+                  className="bg-white shadow-lg transition-all duration-300"
                   style={{
                     width: `${(zoom / 100) * 800}px`,
-                    minHeight: `${(zoom / 100) * 1100}px`,
+                    height: `${(zoom / 100) * 1100}px`,
                   }}
                 >
-                  <div className="p-12 text-gray-700">
-                    <h1 className="text-2xl font-bold mb-6">{document.title}</h1>
-                    <p className="mb-4">ページ {currentPage}</p>
-                    <div className="space-y-4 text-sm leading-relaxed">
-                      <p>
-                        このドキュメントはPDF文書のプレビューです。実際の実装では、PDFレンダリングライブラリ（例：react-pdf）を使用して、実際のPDFコンテンツを表示します。
-                      </p>
-                      <p>
-                        現在の表示：{currentPage} / {totalPages} ページ
-                      </p>
-                      <p>拡大率：{zoom}%</p>
-                      <div className="mt-8 p-4 bg-gray-50 rounded">
-                        <h3 className="font-bold mb-2">文書情報</h3>
-                        <ul className="list-disc list-inside space-y-1">
-                          <li>文書種類：{document.type}</li>
-                          <li>発番部署：{document.department}</li>
-                          <li>発番番号：{document.number}</li>
-                          <li>部署：{document.division}</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
+                  <PDFViewer fileUrl={pdfUrl} pageNumber={currentPage} scale={zoom / 100} />
                 </div>
               </div>
             </>
