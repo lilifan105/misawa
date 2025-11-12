@@ -17,21 +17,24 @@ resource "aws_apigatewayv2_stage" "main" {
 }
 
 resource "aws_apigatewayv2_integration" "documents" {
-  api_id           = aws_apigatewayv2_api.main.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = var.documents_invoke_arn
+  api_id             = aws_apigatewayv2_api.main.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = var.documents_invoke_arn
+  payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "search" {
-  api_id           = aws_apigatewayv2_api.main.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = var.search_invoke_arn
+  api_id             = aws_apigatewayv2_api.main.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = var.search_invoke_arn
+  payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_integration" "external_api" {
-  api_id           = aws_apigatewayv2_api.main.id
-  integration_type = "AWS_PROXY"
-  integration_uri  = var.external_api_invoke_arn
+  api_id             = aws_apigatewayv2_api.main.id
+  integration_type   = "AWS_PROXY"
+  integration_uri    = var.external_api_invoke_arn
+  payload_format_version = "2.0"
 }
 
 resource "aws_apigatewayv2_route" "documents_list" {

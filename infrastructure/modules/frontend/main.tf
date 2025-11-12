@@ -3,6 +3,7 @@ resource "aws_amplify_app" "frontend" {
   name         = "${var.project_name}-frontend-${var.environment}"
   repository   = var.repository_url
   access_token = var.github_access_token != "" ? var.github_access_token : null
+  platform     = "WEB_COMPUTE"
 
   # ビルド設定（モノレポ対応）
   build_spec = <<-EOT
@@ -31,19 +32,6 @@ resource "aws_amplify_app" "frontend" {
     AMPLIFY_MONOREPO_APP_ROOT = "frontend"
     NEXT_PUBLIC_API_ENDPOINT  = var.api_endpoint
     _LIVE_UPDATES             = "[{\"pkg\":\"next\",\"type\":\"internal\",\"version\":\"latest\"}]"
-  }
-
-  # カスタムルール（Next.js static export用）
-  custom_rule {
-    source = "/<*>"
-    status = "404"
-    target = "/404.html"
-  }
-
-  custom_rule {
-    source = "</^[^.]+$|\\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|woff2|ttf|map|json)$)([^.]+$)/>"
-    status = "200"
-    target = "/index.html"
   }
 
   tags = {
