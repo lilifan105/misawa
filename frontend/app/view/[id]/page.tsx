@@ -7,11 +7,12 @@ export function generateStaticParams() {
 
 export const dynamicParams = true
 
-export default function ViewDocumentPage({ params }: { params: { id: string } }) {
+export default async function ViewDocumentPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <SystemHeader breadcrumbs={[{ label: "トップページ", href: "/" }, { label: "文書閲覧画面" }]} />
-      <DocumentViewerPage documentId={params.id} />
+      <DocumentViewerPage documentId={id} />
     </div>
   )
 }

@@ -46,8 +46,8 @@ def list_documents():
     logger.info(f"Retrieved {len(items)} documents")
     return {'documents': items, 'count': len(items)}
 
-@app.get("/documents/<doc_id>")
-def get_document(doc_id: str):
+@app.get("/documents/{id}")
+def get_document(id: str):
     """
     文書詳細取得API
     
@@ -60,13 +60,13 @@ def get_document(doc_id: str):
     エラー:
         404: 文書が見つからない場合
     """
-    result = table.get_item(Key={'id': doc_id})
+    result = table.get_item(Key={'id': id})
     
     if 'Item' not in result:
-        logger.warning(f"Document not found: {doc_id}")
+        logger.warning(f"Document not found: {id}")
         return {'error': 'Document not found'}, 404
     
-    logger.info(f"Retrieved document: {doc_id}")
+    logger.info(f"Retrieved document: {id}")
     return convert_decimals(result['Item'])
 
 @app.post("/documents")
@@ -108,8 +108,8 @@ def create_document():
     
     return convert_decimals(item), 201
 
-@app.put("/documents/<doc_id>")
-def update_document(doc_id: str):
+@app.put("/documents/{id}")
+def update_document(id: str):
     """
     文書更新API
     
@@ -138,41 +138,47 @@ def update_document(doc_id: str):
             expr_values[f':{key}'] = body[key]
     
     result = table.update_item(
-        Key={'id': doc_id},
+        Key={'id': id},
         UpdateExpression=update_expr,
         ExpressionAttributeValues=expr_values,
         ReturnValues='ALL_NEW'
     )
     
-    logger.info(f"Updated document: {doc_id}")
+    logger.info(f"Updated document: {id}")
     return convert_decimals(result['Attributes'])
 
-@app.delete("/documents/<doc_id>")
-def delete_document(doc_id: str):
+@app.delete("/documents/{id}")
+def delete_document(id: str):
     """
-    文書削除API（論理削除）
+    文書削除API（物理削除）
     
     パスパラメータ:
         doc_id: 文書ID
     
     処理:
-        文書のステータスを'deleted'に更新（物理削除はしない）
+        DynamoDBから文書を物理削除
     
     戻り値:
         削除完了メッセージ
-    """
-    table.update_item(
-        Key={'id': doc_id},
-        UpdateExpression='SET #status = :status, updatedAt = :updated',
-        ExpressionAttributeNames={'#status': 'status'},
-        ExpressionAttributeValues={
-            ':status': 'deleted',
-            ':updated': datetime.now().isoformat()
-        }
-    )
     
-    logger.info(f"Deleted document: {doc_id}")
-    return {'message': 'Document deleted'}
+    エラー:
+        404: 文書が見つからない場合
+    """
+    try:
+        # 削除前に文書の存在確認
+        result = table.get_item(Key={'id': id})
+        if 'Item' not in result:
+            logger.warning(f"Document not found for deletion: {id}")
+            return {'error': 'Document not found'}, 404
+        
+        # 物理削除を実行
+        table.delete_item(Key={'id': id})
+        
+        logger.info(f"Deleted document: {id}")
+        return {'message': 'Document deleted successfully'}
+    except Exception as e:
+        logger.error(f"Error deleting document {id}: {str(e)}")
+        return {'error': 'Failed to delete document'}, 500
 
 @logger.inject_lambda_context
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
