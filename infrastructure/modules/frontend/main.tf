@@ -18,7 +18,7 @@ resource "aws_amplify_app" "frontend" {
               commands:
                 - npm run build
           artifacts:
-            baseDirectory: .next/standalone
+            baseDirectory: out
             files:
               - '**/*'
           cache:
@@ -33,10 +33,16 @@ resource "aws_amplify_app" "frontend" {
     _LIVE_UPDATES             = "[{\"pkg\":\"next\",\"type\":\"internal\",\"version\":\"latest\"}]"
   }
 
-  # カスタムルール（Next.js用）
+  # カスタムルール（Next.js static export用）
   custom_rule {
     source = "/<*>"
-    status = "404-200"
+    status = "404"
+    target = "/404.html"
+  }
+
+  custom_rule {
+    source = "</^[^.]+$|\\.(?!(css|gif|ico|jpg|js|png|txt|svg|woff|woff2|ttf|map|json)$)([^.]+$)/>"
+    status = "200"
     target = "/index.html"
   }
 

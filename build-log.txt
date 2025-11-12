@@ -1,0 +1,77 @@
+2025-11-12T10:04:29.241Z [INFO]: # Build environment configured with Standard build compute type: 8GiB Memory, 4vCPUs, 128GB Disk Space
+2025-11-12T10:04:30.086Z [INFO]: # Cloning repository: git@github.com:lilifan105/misawa.git
+2025-11-12T10:04:31.208Z [INFO]: 
+2025-11-12T10:04:31.208Z [INFO]: Cloning into 'misawa'...
+2025-11-12T10:04:31.209Z [INFO]: # Checking for Git submodules at: /codebuild/output/src2687895168/src/misawa/.gitmodules
+2025-11-12T10:04:31.219Z [INFO]: # Retrieving environment cache...
+2025-11-12T10:04:31.269Z [WARNING]: ! Unable to write cache: {"code":"ERR_BAD_REQUEST","message":"Request failed with status code 404"})}
+2025-11-12T10:04:31.269Z [INFO]: ---- Setting Up SSM Secrets ----
+2025-11-12T10:04:31.269Z [INFO]: SSM params {"Path":"/amplify/duf14d86vld6r/main/","WithDecryption":true}
+2025-11-12T10:04:31.326Z [WARNING]: !Failed to set up process.env.secrets
+2025-11-12T10:04:32.164Z [INFO]: # Retrieving cache...
+2025-11-12T10:04:32.258Z [INFO]: # Extracting cache...
+2025-11-12T10:04:32.259Z [INFO]: # Extraction completed
+2025-11-12T10:04:32.260Z [INFO]: # Retrieved cache
+2025-11-12T10:04:37.853Z [INFO]: ## Starting Backend Build
+                                 ## Checking for associated backend environment...
+                                 ## No backend environment association found, continuing...
+                                 ## Completed Backend Build
+2025-11-12T10:04:37.859Z [INFO]: {"backendDuration": 0}
+                                 ## Starting Frontend Build
+                                 # Starting phase: preBuild
+                                 # Executing command: npm ci
+2025-11-12T10:05:07.844Z [INFO]: added 190 packages, and audited 191 packages in 24s
+2025-11-12T10:05:07.851Z [INFO]: 25 packages are looking for funding
+                                 run `npm fund` for details
+                                 found 0 vulnerabilities
+2025-11-12T10:05:07.868Z [INFO]: # Completed phase: preBuild
+                                 # Starting phase: build
+                                 # Executing command: npm run build
+2025-11-12T10:05:07.975Z [INFO]: > my-v0-project@0.1.0 build
+                                 > next build
+2025-11-12T10:05:08.615Z [INFO]: ⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+2025-11-12T10:05:08.625Z [INFO]: Attention: Next.js now collects completely anonymous telemetry regarding usage.
+2025-11-12T10:05:08.625Z [INFO]: This information is used to shape Next.js' roadmap and prioritize features.
+                                 You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+                                 https://nextjs.org/telemetry
+2025-11-12T10:05:08.637Z [INFO]: ▲ Next.js 16.0.0 (Turbopack)
+2025-11-12T10:05:08.638Z [INFO]: 
+2025-11-12T10:05:08.725Z [INFO]: Creating an optimized production build ...
+2025-11-12T10:05:13.103Z [INFO]: ✓ Compiled successfully in 4.1s
+2025-11-12T10:05:13.128Z [INFO]: Skipping validation of types
+2025-11-12T10:05:13.246Z [INFO]: 
+2025-11-12T10:05:13.246Z [INFO]: We detected TypeScript in your project and reconfigured your tsconfig.json file for you.
+                                 The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+                                 - include was updated to add '.next/dev/types/**/*.ts'
+2025-11-12T10:05:13.250Z [INFO]: Collecting page data ...
+2025-11-12T10:05:13.724Z [INFO]: Generating static pages (0/6) ...
+2025-11-12T10:05:14.245Z [INFO]: Generating static pages (1/6)
+2025-11-12T10:05:14.245Z [INFO]: Generating static pages (2/6)
+                                 Generating static pages (4/6)
+                                 ✓ Generating static pages (6/6) in 521.3ms
+2025-11-12T10:05:14.264Z [INFO]: Finalizing page optimization ...
+2025-11-12T10:05:14.272Z [INFO]: 
+2025-11-12T10:05:14.274Z [INFO]: Route (app)
+                                 ┌ ○ /
+                                 ├ ○ /_not-found
+                                 ├ ○ /complete
+                                 ├ ○ /confirm
+                                 ├ ○ /register
+                                 └ ƒ /view/[id]
+2025-11-12T10:05:14.275Z [INFO]: ○  (Static)   prerendered as static content
+                                 ƒ  (Dynamic)  server-rendered on demand
+2025-11-12T10:05:14.435Z [INFO]: # Completed phase: build
+                                 ## Completed Frontend Build
+2025-11-12T10:05:14.448Z [INFO]: ## Build completed successfully
+2025-11-12T10:05:14.448Z [INFO]: # Starting caching...
+2025-11-12T10:05:14.452Z [INFO]: # Creating cache artifact...
+2025-11-12T10:05:14.455Z [INFO]: # Created cache artifact
+2025-11-12T10:05:14.455Z [INFO]: # Uploading cache artifact...
+2025-11-12T10:05:14.564Z [INFO]: # Uploaded cache artifact
+2025-11-12T10:05:14.564Z [INFO]: # Caching completed
+2025-11-12T10:05:14.569Z [INFO]: # Starting build artifact upload process...
+2025-11-12T10:05:15.065Z [INFO]: # Uploading build artifact '__artifacts.zip'...
+2025-11-12T10:05:15.277Z [INFO]: # Build artifact upload completed
+2025-11-12T10:05:15.278Z [INFO]: # Starting environment caching...
+2025-11-12T10:05:15.278Z [INFO]: # Environment caching completed
+

@@ -1,18 +1,16 @@
 import os
 import boto3
-from aws_lambda_powertools import Logger, Tracer
+from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 logger = Logger()
-tracer = Tracer()
 app = APIGatewayRestResolver()
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ.get('DOCUMENTS_TABLE', 'documents'))
 
 @app.get("/external/documents")
-@tracer.capture_method
 def get_external_documents():
     """
     外部API - 文書一覧取得（GCP連携用）
@@ -50,6 +48,5 @@ def get_external_documents():
     return {'documents': items, 'count': len(items)}
 
 @logger.inject_lambda_context
-@tracer.capture_lambda_handler
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     return app.resolve(event, context)

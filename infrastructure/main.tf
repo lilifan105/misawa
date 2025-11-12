@@ -67,9 +67,10 @@ module "api" {
 module "frontend" {
   source = "./modules/frontend"
 
-  project_name   = var.project_name
-  environment    = var.environment
-  repository_url = var.repository_url
-  branch_name    = var.branch_name
-  api_endpoint   = module.api.api_endpoint
+  project_name         = var.project_name
+  environment          = var.environment
+  repository_url       = var.repository_url
+  branch_name          = var.branch_name
+  api_endpoint         = module.api.api_endpoint
+  github_access_token  = var.github_access_token
 }

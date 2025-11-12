@@ -23,3 +23,10 @@ variable "api_endpoint" {
   description = "バックエンドAPIエンドポイント"
   type        = string
 }
+
+variable "github_access_token" {
+  description = "GitHubアクセストークン（リポジトリ接続用）"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

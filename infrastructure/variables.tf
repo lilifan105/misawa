@@ -51,3 +51,10 @@ variable "branch_name" {
   type        = string
   default     = "main"
 }
+
+variable "github_access_token" {
+  description = "GitHub Personal Access Token（repo権限必要）"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

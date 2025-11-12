@@ -7,3 +7,4 @@ cors_origins     = ["http://localhost:3000", "https://your-domain.com"]
 external_api_key = "your-secure-api-key-here"
 repository_url   = "https://github.com/your-org/misawa"
 branch_name      = "main"
+github_access_token = "ghp_your_github_personal_access_token_here"

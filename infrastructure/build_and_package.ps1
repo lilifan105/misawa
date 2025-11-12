@@ -18,9 +18,9 @@ if (Test-Path "powertools.zip") { Remove-Item "powertools.zip" }
 # Layerディレクトリ構造を作成
 New-Item -ItemType Directory -Path "python" -Force | Out-Null
 
-# Powertoolsをインストール
-Write-Host "  Installing Powertools..." -ForegroundColor Yellow
-pip install aws-lambda-powertools==2.31.0 -t python --quiet
+# Powertoolsと依存関係をインストール
+Write-Host "  Installing Powertools and dependencies..." -ForegroundColor Yellow
+pip install aws-lambda-powertools==2.31.0 aws-xray-sdk -t python --quiet
 
 # zipファイルを作成
 Write-Host "  Creating zip file..." -ForegroundColor Yellow

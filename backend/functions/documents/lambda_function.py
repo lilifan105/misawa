@@ -2,12 +2,11 @@ import os
 from decimal import Decimal
 from datetime import datetime
 import boto3
-from aws_lambda_powertools import Logger, Tracer
+from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayRestResolver
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 logger = Logger()
-tracer = Tracer()
 app = APIGatewayRestResolver()
 
 dynamodb = boto3.resource('dynamodb')
@@ -23,7 +22,6 @@ def convert_decimals(obj):
     return obj
 
 @app.get("/documents")
-@tracer.capture_method
 def list_documents():
     """
     文書一覧取得API
@@ -49,7 +47,6 @@ def list_documents():
     return {'documents': items, 'count': len(items)}
 
 @app.get("/documents/<doc_id>")
-@tracer.capture_method
 def get_document(doc_id: str):
     """
     文書詳細取得API
@@ -73,7 +70,6 @@ def get_document(doc_id: str):
     return convert_decimals(result['Item'])
 
 @app.post("/documents")
-@tracer.capture_method
 def create_document():
     """
     文書登録API
@@ -113,7 +109,6 @@ def create_document():
     return convert_decimals(item), 201
 
 @app.put("/documents/<doc_id>")
-@tracer.capture_method
 def update_document(doc_id: str):
     """
     文書更新API
@@ -153,7 +148,6 @@ def update_document(doc_id: str):
     return convert_decimals(result['Attributes'])
 
 @app.delete("/documents/<doc_id>")
-@tracer.capture_method
 def delete_document(doc_id: str):
     """
     文書削除API（論理削除）
@@ -181,6 +175,5 @@ def delete_document(doc_id: str):
     return {'message': 'Document deleted'}
 
 @logger.inject_lambda_context
-@tracer.capture_lambda_handler
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
     return app.resolve(event, context)
