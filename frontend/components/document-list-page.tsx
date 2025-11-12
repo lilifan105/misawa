@@ -17,7 +17,7 @@ interface Category {
 }
 
 interface Document {
-  id: number
+  id: string
   type: string
   date: string
   title: string
@@ -33,9 +33,9 @@ export function DocumentListPage() {
   const [titleSearch, setTitleSearch] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["メーカー発信文書"]))
-  const [activeActionMenu, setActiveActionMenu] = useState<number | null>(null)
+  const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [documentToDelete, setDocumentToDelete] = useState<number | null>(null)
+  const [documentToDelete, setDocumentToDelete] = useState<string | null>(null)
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
 
   const categories: Category[] = [
@@ -129,7 +129,7 @@ export function DocumentListPage() {
         setLoading(true)
         const response = await getDocuments()
         const docs = response.documents.map((doc: any) => ({
-          id: parseInt(doc.id),
+          id: doc.id,
           type: doc.type || '未分類',
           date: doc.date || '',
           title: doc.title || '無題',
@@ -231,9 +231,9 @@ export function DocumentListPage() {
     return buttons
   }
 
-  const handleDelete = async (docId: number) => {
+  const handleDelete = async (docId: string) => {
     try {
-      await apiDeleteDocument(String(docId))
+      await apiDeleteDocument(docId)
       setAllDocuments(prev => prev.filter(doc => doc.id !== docId))
       setShowDeleteModal(false)
       setDocumentToDelete(null)
@@ -244,13 +244,13 @@ export function DocumentListPage() {
     }
   }
 
-  const handleEdit = (docId: number) => {
+  const handleEdit = (docId: string) => {
     console.log(`文書 ${docId} を編集`)
     router.push(`/register?id=${docId}`)
     setActiveActionMenu(null)
   }
 
-  const handleActionMenuClick = (e: React.MouseEvent, docId: number) => {
+  const handleActionMenuClick = (e: React.MouseEvent, docId: string) => {
     e.stopPropagation()
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     setMenuPosition({

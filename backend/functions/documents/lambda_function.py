@@ -182,4 +182,5 @@ def delete_document(id: str):
 
 @logger.inject_lambda_context
 def lambda_handler(event: dict, context: LambdaContext) -> dict:
+    logger.info(f"Received event: {event}")
     return app.resolve(event, context)
