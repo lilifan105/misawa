@@ -9,6 +9,9 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createDocument } from "@/lib/api"
+import dynamic from 'next/dynamic'
+
+const PDFViewer = dynamic(() => import('./pdf-viewer'), { ssr: false })
 
 export function DocumentRegistrationForm() {
   const [activeTab, setActiveTab] = useState<"attributes" | "display">("attributes")
@@ -26,7 +29,18 @@ export function DocumentRegistrationForm() {
     date: '',
     endDate: ''
   })
+  const [pdfFile, setPdfFile] = useState<string | null>(null)
   const router = useRouter()
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file && file.type === 'application/pdf') {
+      const url = URL.createObjectURL(file)
+      setPdfFile(url)
+    } else if (file) {
+      alert('PDFファイルを選択してください')
+    }
+  }
 
   const handleComplete = () => {
     if (!formData.type || !formData.title || !formData.department) {
@@ -92,9 +106,10 @@ export function DocumentRegistrationForm() {
           </div>
         </div>
 
-        {/* Main Content - Scrollable area */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto p-6">
+        {/* Main Content */}
+        <div className="flex-1 overflow-hidden flex">
+          {/* Left: Form */}
+          <div className="flex-1 overflow-y-auto p-6">
             <div className="bg-white border border-gray-300 rounded-lg p-6 animate-in fade-in duration-500">
               {activeTab === "attributes" && (
                 <>
@@ -371,20 +386,32 @@ export function DocumentRegistrationForm() {
                       </div>
                     </div>
 
-                    {/* File Upload */}
+                    {/* PDF Upload */}
                     <div className="flex items-start gap-4 pb-4 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
-                      <Label className="w-32 pt-2 text-sm font-medium">お知らせ画像登録</Label>
+                      <Label className="w-32 pt-2 text-sm font-medium">PDFファイル</Label>
                       <div className="flex-1">
                         <div className="flex items-center gap-4">
-                          <Button variant="outline" size="sm">
+                          <input
+                            type="file"
+                            accept=".pdf"
+                            onChange={handleFileChange}
+                            className="hidden"
+                            id="pdf-upload"
+                          />
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => document.getElementById('pdf-upload')?.click()}
+                          >
                             ファイルの選択
                           </Button>
-                          <span className="text-sm text-gray-500">ファイルが選択されていません</span>
+                          <span className="text-sm text-gray-500">
+                            {pdfFile ? 'PDFファイルが選択されました' : 'ファイルが選択されていません'}
+                          </span>
                         </div>
                         <div className="mt-2 text-xs text-blue-600 space-y-1">
-                          <p>画像の形式はjpeg、gif、pngのみです。</p>
-                          <p>画像のサイズは1MB以下にしてください。</p>
-                          <p>画像の大きさは横幅1000px以下、縦幅1000px以下にしてください。</p>
+                          <p>PDFファイルのみアップロード可能です。</p>
+                          <p>ファイルサイズは10MB以下にしてください。</p>
                         </div>
                       </div>
                     </div>
@@ -396,6 +423,25 @@ export function DocumentRegistrationForm() {
                 <div className="space-y-4 animate-in fade-in duration-500">
                   <h3 className="text-base font-semibold mb-4">表示先設定</h3>
                   {/* Additional display settings can be added here */}
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Right: PDF Preview */}
+          <div className="w-1/2 border-l bg-white p-6 overflow-hidden flex flex-col">
+            <h3 className="text-lg font-semibold mb-4">文書プレビュー</h3>
+            <div className="flex-1 border rounded-lg overflow-hidden bg-gray-100">
+              {pdfFile ? (
+                <PDFViewer fileUrl={pdfFile} />
+              ) : (
+                <div className="h-full flex items-center justify-center text-gray-400">
+                  <div className="text-center">
+                    <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    <p className="mt-2 text-sm">ファイルを選択するとプレビューが表示されます</p>
+                  </div>
                 </div>
               )}
             </div>
