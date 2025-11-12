@@ -1,8 +1,8 @@
 # Amplifyアプリケーション
 resource "aws_amplify_app" "frontend" {
-  name = "${var.project_name}-frontend-${var.environment}"
-  # repositoryはAmplifyコンソールで手動接続
-  # repository = var.repository_url
+  name         = "${var.project_name}-frontend-${var.environment}"
+  repository   = var.repository_url
+  access_token = var.github_access_token != "" ? var.github_access_token : null
 
   # ビルド設定（モノレポ対応）
   build_spec = <<-EOT
@@ -18,7 +18,7 @@ resource "aws_amplify_app" "frontend" {
               commands:
                 - npm run build
           artifacts:
-            baseDirectory: .next
+            baseDirectory: .next/standalone
             files:
               - '**/*'
           cache:
@@ -28,8 +28,9 @@ resource "aws_amplify_app" "frontend" {
 
   # 環境変数
   environment_variables = {
-    NEXT_PUBLIC_API_ENDPOINT = var.api_endpoint
-    _LIVE_UPDATES            = "[{\"pkg\":\"next\",\"type\":\"internal\",\"version\":\"latest\"}]"
+    AMPLIFY_MONOREPO_APP_ROOT = "frontend"
+    NEXT_PUBLIC_API_ENDPOINT  = var.api_endpoint
+    _LIVE_UPDATES             = "[{\"pkg\":\"next\",\"type\":\"internal\",\"version\":\"latest\"}]"
   }
 
   # カスタムルール（Next.js用）
@@ -45,19 +46,20 @@ resource "aws_amplify_app" "frontend" {
   }
 }
 
-# ブランチ設定（リポジトリ接続後に自動作成される）
-# resource "aws_amplify_branch" "main" {
-#   app_id      = aws_amplify_app.frontend.id
-#   branch_name = var.branch_name
+# ブランチ設定
+resource "aws_amplify_branch" "main" {
+  app_id      = aws_amplify_app.frontend.id
+  branch_name = var.branch_name
 
-#   enable_auto_build = true
+  enable_auto_build = true
 
-#   environment_variables = {
-#     NEXT_PUBLIC_API_ENDPOINT = var.api_endpoint
-#   }
+  environment_variables = {
+    AMPLIFY_MONOREPO_APP_ROOT = "frontend"
+    NEXT_PUBLIC_API_ENDPOINT  = var.api_endpoint
+  }
 
-#   tags = {
-#     Name        = "${var.project_name}-${var.branch_name}"
-#     Environment = var.environment
-#   }
-# }
+  tags = {
+    Name        = "${var.project_name}-${var.branch_name}"
+    Environment = var.environment
+  }
+}
