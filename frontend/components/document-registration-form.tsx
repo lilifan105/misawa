@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { createDocument, getUploadUrl, uploadToS3 } from "@/lib/api"
+import { createDocument, getUploadUrl, uploadToS3, getDocument, updateDocument } from "@/lib/api"
+import { useEffect } from "react"
 
-export function DocumentRegistrationForm() {
+export function DocumentRegistrationForm({ documentId }: { documentId?: string | null }) {
   const [activeTab, setActiveTab] = useState<"attributes" | "display">("attributes")
   const [selectedUrgency, setSelectedUrgency] = useState("normal")
   const [showInNews, setShowInNews] = useState(false)
@@ -28,7 +29,36 @@ export function DocumentRegistrationForm() {
   const [pdfFile, setPdfFile] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    if (documentId) {
+      setIsEditMode(true)
+      setLoading(true)
+      getDocument(documentId)
+        .then((doc) => {
+          setFormData({
+            type: doc.type || '',
+            title: doc.title || '',
+            department: doc.department || '',
+            number: doc.number || '',
+            division: doc.division || '',
+            date: doc.date || '',
+            endDate: doc.endDate || ''
+          })
+          if (doc.fileName) {
+            setPdfFile(doc.downloadUrl || '')
+          }
+        })
+        .catch((error) => {
+          console.error('文書の取得に失敗:', error)
+          alert('文書の取得に失敗しました')
+        })
+        .finally(() => setLoading(false))
+    }
+  }, [documentId])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -51,7 +81,7 @@ export function DocumentRegistrationForm() {
     if (!formData.type) errors.push('文書種類')
     if (!formData.title?.trim()) errors.push('タイトル')
     if (!formData.department?.trim()) errors.push('発信部門・部')
-    if (!selectedFile) errors.push('PDFファイル')
+    if (!isEditMode && !selectedFile) errors.push('PDFファイル')
     
     if (errors.length > 0) {
       alert(`以下の必須項目を入力してください：\n${errors.join('、')}`)
@@ -60,13 +90,17 @@ export function DocumentRegistrationForm() {
     
     setUploading(true)
     try {
-      // 1. 署名付きURL取得
-      const { uploadUrl, fileKey } = await getUploadUrl(selectedFile.name, selectedFile.type)
+      let fileKey = ''
+      let fileName = ''
       
-      // 2. S3へ直接アップロード
-      await uploadToS3(uploadUrl, selectedFile)
+      // 新しいファイルが選択されている場合のみアップロード
+      if (selectedFile) {
+        const { uploadUrl, fileKey: newFileKey } = await getUploadUrl(selectedFile.name, selectedFile.type)
+        await uploadToS3(uploadUrl, selectedFile)
+        fileKey = newFileKey
+        fileName = selectedFile.name
+      }
       
-      // 3. フォームデータとファイル情報を保存して確認画面へ遷移
       const dataToSave = {
         type: formData.type,
         title: formData.title.trim(),
@@ -75,14 +109,23 @@ export function DocumentRegistrationForm() {
         ...(formData.division?.trim() && { division: formData.division.trim() }),
         ...(formData.date && { date: formData.date }),
         ...(formData.endDate && { endDate: formData.endDate }),
-        fileKey,
-        fileName: selectedFile.name
+        ...(fileKey && { fileKey }),
+        ...(fileName && { fileName })
       }
-      sessionStorage.setItem('documentFormData', JSON.stringify(dataToSave))
-      router.push("/confirm")
+      
+      if (isEditMode) {
+        // 編集モード：直接更新
+        await updateDocument(documentId!, dataToSave)
+        alert('文書を更新しました')
+        router.push(`/view/${documentId}`)
+      } else {
+        // 新規登録：確認画面へ
+        sessionStorage.setItem('documentFormData', JSON.stringify(dataToSave))
+        router.push("/confirm")
+      }
     } catch (error) {
-      console.error('アップロードエラー:', error)
-      alert('ファイルのアップロードに失敗しました')
+      console.error('処理エラー:', error)
+      alert(isEditMode ? '文書の更新に失敗しました' : 'ファイルのアップロードに失敗しました')
     } finally {
       setUploading(false)
     }
@@ -95,6 +138,14 @@ export function DocumentRegistrationForm() {
   const handleConfirmCancel = () => {
     setShowCancelModal(false)
     router.push("/")
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-gray-500">読み込み中...</div>
+      </div>
+    )
   }
 
   return (
@@ -433,8 +484,8 @@ export function DocumentRegistrationForm() {
                           >
                             ファイルの選択
                           </Button>
-                          <span className="text-sm text-gray-500">
-                            {pdfFile ? 'PDFファイルが選択されました' : 'ファイルが選択されていません'}
+                          <span className="text-sm text-gray-700">
+                            {selectedFile ? selectedFile.name : 'ファイルが選択されていません'}
                           </span>
                         </div>
                         <div className="mt-2 text-xs text-blue-600 space-y-1">
@@ -470,7 +521,7 @@ export function DocumentRegistrationForm() {
               disabled={uploading}
               className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-3 text-base transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-lg disabled:opacity-50"
             >
-              {uploading ? 'アップロード中...' : '完了'}
+{uploading ? (isEditMode ? '更新中...' : 'アップロード中...') : (isEditMode ? '更新' : '完了')}
             </Button>
           </div>
         </div>
