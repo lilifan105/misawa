@@ -12,6 +12,9 @@ import dynamic from 'next/dynamic'
 
 const PDFViewer = dynamic(() => import('./pdf-viewer'), { ssr: false })
 
+let Document: any = null
+let Page: any = null
+
 interface RelatedDocument {
   id: number
   title: string
@@ -32,10 +35,27 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
   const [pageInput, setPageInput] = useState("1")
   const [hoveredThumbnail, setHoveredThumbnail] = useState<number | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [document, setDocument] = useState<any>(null)
+  const [docData, setDocData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [pdfUrl, setPdfUrl] = useState<string>('/sample.pdf')
-  const [totalPages, setTotalPages] = useState(15)
+  const [totalPages, setTotalPages] = useState(0)
+  const [pdfjs, setPdfjs] = useState<any>(null)
+
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+    if (typeof window !== 'undefined') {
+      import('react-pdf').then(mod => {
+        Document = mod.Document
+        Page = mod.Page
+        import('react-pdf/dist/Page/AnnotationLayer.css')
+        import('react-pdf/dist/Page/TextLayer.css')
+        mod.pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${mod.pdfjs.version}/build/pdf.worker.min.mjs`
+        setPdfjs(mod.pdfjs)
+      })
+    }
+  }, [])
 
   const handlePdfLoadSuccess = (numPages: number) => {
     setTotalPages(numPages)
@@ -46,8 +66,7 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
       try {
         setLoading(true)
         const doc = await getDocument(documentId)
-        setDocument(doc)
-        // S3からのPDF URLを設定
+        setDocData(doc)
         if (doc.downloadUrl) {
           setPdfUrl(doc.downloadUrl)
         }
@@ -79,12 +98,49 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
   const handleZoomIn = () => setZoom(Math.min(zoom + 10, 200))
   const handleZoomOut = () => setZoom(Math.max(zoom - 10, 50))
   const handlePrint = () => window.print()
-  const handleDownload = () => {
-    console.log("ダウンロード処理")
+  
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(pdfUrl)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = window.document.createElement('a')
+      link.href = url
+      link.download = `${docData?.title || 'document'}.pdf`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('ダウンロードに失敗:', error)
+    }
   }
 
-  const handlePageDownload = (pageNum: number) => {
-    console.log(`ページ ${pageNum} をダウンロード`)
+  const handlePageDownload = async (pageNum: number) => {
+    if (!pdfjs) return
+    try {
+      const pdf = await pdfjs.getDocument(pdfUrl).promise
+      const page = await pdf.getPage(pageNum)
+      const viewport = page.getViewport({ scale: 2 })
+      const canvas = window.document.createElement('canvas')
+      const context = canvas.getContext('2d')
+      canvas.height = viewport.height
+      canvas.width = viewport.width
+
+      if (context) {
+        await page.render({ canvasContext: context, viewport }).promise
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const url = URL.createObjectURL(blob)
+            const link = window.document.createElement('a')
+            link.href = url
+            link.download = `${docData?.title || 'document'}_page${pageNum}.png`
+            link.click()
+            URL.revokeObjectURL(url)
+          }
+        })
+      }
+    } catch (error) {
+      console.error('ページのダウンロードに失敗:', error)
+    }
   }
 
   const handlePageChange = (newPage: number) => {
@@ -107,15 +163,15 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
     }
   }
 
-  const documentAttributes = document ? {
-    文書種類: document.type || '-',
-    タイトル: document.title || '-',
-    作成日: document.date || '-',
-    表示終了日: document.endDate || '-',
-    発番部署: document.department || '-',
-    発番番号: document.number || '-',
-    部署: document.division || '-',
-    ステータス: document.status || '-',
+  const documentAttributes = docData ? {
+    文書種類: docData.type || '-',
+    タイトル: docData.title || '-',
+    作成日: docData.date || '-',
+    表示終了日: docData.endDate || '-',
+    発番部署: docData.department || '-',
+    発番番号: docData.number || '-',
+    部署: docData.division || '-',
+    ステータス: docData.status || '-',
   } : {}
 
   const handleDelete = async () => {
@@ -137,7 +193,7 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
     )
   }
 
-  if (!document) {
+  if (!docData) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-gray-500">文書が見つかりません</div>
@@ -148,7 +204,7 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
       <div className="bg-white border-b px-8 py-3 flex items-center justify-between flex-shrink-0">
-        <h2 className="text-gray-800 font-bold text-lg">{document.title || '文書詳細'}</h2>
+        <h2 className="text-gray-800 font-bold text-lg">{docData.title || '文書詳細'}</h2>
       </div>
 
       <div className="bg-white border-b flex gap-1 px-8 pt-4 flex-shrink-0 justify-between items-end">
@@ -251,11 +307,15 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
                           : "hover:ring-2 hover:ring-blue-300 hover:shadow-md"
                       }`}
                     >
-                      <img
-                        src={thumb.imageUrl || "/placeholder.svg"}
-                        alt={`ページ ${thumb.pageNumber}`}
-                        className="w-full h-auto"
-                      />
+                      <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center">
+                        {isClient && Document && Page ? (
+                          <Document file={pdfUrl} loading={<div className="text-xs text-gray-400 p-2">読込中...</div>}>
+                            <Page pageNumber={thumb.pageNumber} width={100} renderTextLayer={false} renderAnnotationLayer={false} />
+                          </Document>
+                        ) : (
+                          <div className="text-xs text-gray-400">読込中...</div>
+                        )}
+                      </div>
                       <div className="bg-gray-100 px-2 py-1 text-center text-xs text-gray-700">
                         ページ {thumb.pageNumber}
                       </div>
