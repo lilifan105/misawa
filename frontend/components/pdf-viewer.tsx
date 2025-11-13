@@ -11,13 +11,17 @@ interface PDFViewerProps {
   fileUrl: string
   pageNumber?: number
   scale?: number
+  onLoadSuccess?: (numPages: number) => void
 }
 
-export default function PDFViewer({ fileUrl, pageNumber = 1, scale = 1 }: PDFViewerProps) {
+export default function PDFViewer({ fileUrl, pageNumber = 1, scale = 1, onLoadSuccess }: PDFViewerProps) {
   const [numPages, setNumPages] = useState<number>(0)
 
   function onDocumentLoadSuccess({ numPages }: { numPages: number }) {
     setNumPages(numPages)
+    if (onLoadSuccess) {
+      onLoadSuccess(numPages)
+    }
   }
 
   return (

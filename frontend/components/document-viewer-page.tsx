@@ -35,6 +35,11 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
   const [document, setDocument] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [pdfUrl, setPdfUrl] = useState<string>('/sample.pdf')
+  const [totalPages, setTotalPages] = useState(15)
+
+  const handlePdfLoadSuccess = (numPages: number) => {
+    setTotalPages(numPages)
+  }
 
   useEffect(() => {
     const fetchDocument = async () => {
@@ -54,8 +59,6 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
     }
     fetchDocument()
   }, [documentId])
-
-  const totalPages = 15
 
   const relatedDocuments: RelatedDocument[] = [
     { id: 1, title: "関連する技術情報ドキュメント", date: "25.04.25", type: "技術情報" },
@@ -365,7 +368,12 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
                     height: `${(zoom / 100) * 1100}px`,
                   }}
                 >
-                  <PDFViewer fileUrl={pdfUrl} pageNumber={currentPage} scale={zoom / 100} />
+                  <PDFViewer 
+                    fileUrl={pdfUrl} 
+                    pageNumber={currentPage} 
+                    scale={zoom / 100} 
+                    onLoadSuccess={handlePdfLoadSuccess}
+                  />
                 </div>
               </div>
             </>

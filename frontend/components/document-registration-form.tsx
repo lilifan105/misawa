@@ -16,7 +16,6 @@ export function DocumentRegistrationForm() {
   const [showInNews, setShowInNews] = useState(false)
   const [displayInOrder, setDisplayInOrder] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
-  const [showCompleteModal, setShowCompleteModal] = useState(false)
   const [formData, setFormData] = useState({
     type: '',
     title: '',
@@ -46,7 +45,7 @@ export function DocumentRegistrationForm() {
     }
   }
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     // 必須項目のバリデーション
     const errors = []
     if (!formData.type) errors.push('文書種類')
@@ -58,15 +57,7 @@ export function DocumentRegistrationForm() {
       alert(`以下の必須項目を入力してください：\n${errors.join('、')}`)
       return
     }
-    setShowCompleteModal(true)
-  }
-
-  const handleConfirmComplete = async () => {
-    if (!selectedFile) {
-      alert('PDFファイルを選択してください')
-      return
-    }
-
+    
     setUploading(true)
     try {
       // 1. 署名付きURL取得
@@ -75,8 +66,8 @@ export function DocumentRegistrationForm() {
       // 2. S3へ直接アップロード
       await uploadToS3(uploadUrl, selectedFile)
       
-      // 3. 空文字列を除外してデータを保存
-      const cleanedData = {
+      // 3. フォームデータとファイル情報を保存して確認画面へ遷移
+      const dataToSave = {
         type: formData.type,
         title: formData.title.trim(),
         department: formData.department.trim(),
@@ -87,9 +78,7 @@ export function DocumentRegistrationForm() {
         fileKey,
         fileName: selectedFile.name
       }
-      sessionStorage.setItem('documentFormData', JSON.stringify(cleanedData))
-      
-      setShowCompleteModal(false)
+      sessionStorage.setItem('documentFormData', JSON.stringify(dataToSave))
       router.push("/confirm")
     } catch (error) {
       console.error('アップロードエラー:', error)
@@ -512,31 +501,7 @@ export function DocumentRegistrationForm() {
         </div>
       )}
 
-      {/* Complete Confirmation Modal */}
-      {showCompleteModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl animate-in fade-in zoom-in duration-200">
-            <h3 className="text-lg font-bold mb-4">確認</h3>
-            <p className="text-gray-600 mb-6">入力内容を確認し、確認画面に進みますか？</p>
-            <div className="flex gap-3 justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setShowCompleteModal(false)}
-                className="transition-all duration-200 hover:scale-105"
-              >
-                キャンセル
-              </Button>
-              <Button
-                onClick={handleConfirmComplete}
-                disabled={uploading}
-                className="bg-blue-600 hover:bg-blue-700 transition-all duration-200 hover:scale-105 disabled:opacity-50"
-              >
-                {uploading ? 'アップロード中...' : '確認画面へ'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </>
   )
 }
