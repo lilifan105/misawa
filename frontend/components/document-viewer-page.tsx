@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { ZoomIn, ZoomOut, Download, Printer, ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
+import { ZoomIn, ZoomOut, Download, Printer, ChevronLeft, ChevronRight, Trash2, Edit } from "lucide-react"
 import { getDocument, deleteDocument as apiDeleteDocument } from "@/lib/api"
 import { useRouter } from "next/navigation"
 import dynamic from 'next/dynamic'
@@ -32,6 +32,7 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
   const [activeTab, setActiveTab] = useState<"document" | "attributes">("document")
   const [currentPage, setCurrentPage] = useState(1)
   const [zoom, setZoom] = useState(100)
+  const [zoomInput, setZoomInput] = useState("100")
   const [pageInput, setPageInput] = useState("1")
   const [hoveredThumbnail, setHoveredThumbnail] = useState<number | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -95,8 +96,29 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
     imageUrl: `/placeholder.svg?height=150&width=120&query=Document page ${i + 1}`,
   }))
 
-  const handleZoomIn = () => setZoom(Math.min(zoom + 10, 200))
-  const handleZoomOut = () => setZoom(Math.max(zoom - 10, 50))
+  const handleZoomIn = () => {
+    const newZoom = Math.min(zoom + 10, 200)
+    setZoom(newZoom)
+    setZoomInput(String(newZoom))
+  }
+  const handleZoomOut = () => {
+    const newZoom = Math.max(zoom - 10, 50)
+    setZoom(newZoom)
+    setZoomInput(String(newZoom))
+  }
+  
+  const handleZoomInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setZoomInput(e.target.value)
+  }
+  
+  const handleZoomInputBlur = () => {
+    const newZoom = Number.parseInt(zoomInput)
+    if (!isNaN(newZoom) && newZoom >= 50 && newZoom <= 200) {
+      setZoom(newZoom)
+    } else {
+      setZoomInput(String(zoom))
+    }
+  }
   const handlePrint = () => window.print()
   
   const handleDownload = async () => {
@@ -164,14 +186,22 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
   }
 
   const documentAttributes = docData ? {
-    文書種類: docData.type || '-',
-    タイトル: docData.title || '-',
-    作成日: docData.date || '-',
-    表示終了日: docData.endDate || '-',
-    発番部署: docData.department || '-',
-    発番番号: docData.number || '-',
-    部署: docData.division || '-',
-    ステータス: docData.status || '-',
+    '文書種類': docData.type || '-',
+    'タイトル': docData.title || '-',
+    '発信番号': docData.number || '-',
+    '発信部門・部': docData.department || '-',
+    '発信部門・グループ': docData.division || '-',
+    '担当': docData.personInCharge || '-',
+    '掲示期間開始日': docData.date || '-',
+    '掲示期間終了日': docData.endDate || '-',
+    '作成者名': '-',
+    '作成日': docData.createdAt ? new Date(docData.createdAt).toLocaleDateString('ja-JP') : '-',
+    '更新日': docData.updatedAt ? new Date(docData.updatedAt).toLocaleDateString('ja-JP') : '-',
+    '連絡先(内線)': docData.internalContact || '-',
+    '連絡先(外線)': docData.externalContact || '-',
+    'e-mail': docData.email || '-',
+    '配布対象': docData.distributionTarget || '-',
+    'ステータス': docData.status || '-',
   } : {}
 
   const handleDelete = async () => {
@@ -230,15 +260,26 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
             属性
           </button>
         </div>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => setShowDeleteModal(true)}
-          className="mb-2 transition-all duration-200 hover:scale-105"
-        >
-          <Trash2 className="w-4 h-4 mr-1" />
-          削除
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(`/register?id=${documentId}`)}
+            className="mb-2 transition-all duration-200 hover:scale-105"
+          >
+            <Edit className="w-4 h-4 mr-1" />
+            編集
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setShowDeleteModal(true)}
+            className="mb-2 transition-all duration-200 hover:scale-105"
+          >
+            <Trash2 className="w-4 h-4 mr-1" />
+            削除
+          </Button>
+        </div>
       </div>
 
       {showDeleteModal && (
@@ -356,7 +397,16 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
                   >
                     <ZoomOut className="w-4 h-4" />
                   </Button>
-                  <span className="text-sm font-medium min-w-[60px] text-center">{zoom}%</span>
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={zoomInput}
+                      onChange={handleZoomInputChange}
+                      onBlur={handleZoomInputBlur}
+                      onKeyDown={(e) => e.key === "Enter" && handleZoomInputBlur()}
+                      className="w-16 text-center text-sm"
+                    />
+                    <span className="text-sm font-medium">%</span>
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
