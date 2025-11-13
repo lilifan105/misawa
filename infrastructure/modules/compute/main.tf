@@ -67,7 +67,7 @@ resource "aws_lambda_function" "documents" {
   environment {
     variables = {
       DOCUMENTS_TABLE         = var.dynamodb_table_name
-      S3_BUCKET               = var.s3_bucket_id
+      DOCUMENTS_BUCKET        = var.s3_bucket_id
       POWERTOOLS_SERVICE_NAME = "documents"
       LOG_LEVEL               = "INFO"
     }

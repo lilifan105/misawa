@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { createDocument } from "@/lib/api"
+import { createDocument, getUploadUrl, uploadToS3 } from "@/lib/api"
 import dynamic from 'next/dynamic'
 
 const PDFViewer = dynamic(() => import('./pdf-viewer'), { ssr: false })
@@ -30,13 +30,20 @@ export function DocumentRegistrationForm() {
     endDate: ''
   })
   const [pdfFile, setPdfFile] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
   const router = useRouter()
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file && file.type === 'application/pdf') {
+      if (file.size > 10 * 1024 * 1024) {
+        alert('ファイルサイズは10MB以下にしてください')
+        return
+      }
       const url = URL.createObjectURL(file)
       setPdfFile(url)
+      setSelectedFile(file)
     } else if (file) {
       alert('PDFファイルを選択してください')
     }
@@ -50,11 +57,32 @@ export function DocumentRegistrationForm() {
     setShowCompleteModal(true)
   }
 
-  const handleConfirmComplete = () => {
-    // 確認画面にデータを渡すためにセッションストレージに保存
-    sessionStorage.setItem('documentFormData', JSON.stringify(formData))
-    setShowCompleteModal(false)
-    router.push("/confirm")
+  const handleConfirmComplete = async () => {
+    if (!selectedFile) {
+      alert('PDFファイルを選択してください')
+      return
+    }
+
+    setUploading(true)
+    try {
+      // 1. 署名付きURL取得
+      const { uploadUrl, fileKey } = await getUploadUrl(selectedFile.name, selectedFile.type)
+      
+      // 2. S3へ直接アップロード
+      await uploadToS3(uploadUrl, selectedFile)
+      
+      // 3. ファイル情報を保存
+      const dataWithFile = { ...formData, fileKey, fileName: selectedFile.name }
+      sessionStorage.setItem('documentFormData', JSON.stringify(dataWithFile))
+      
+      setShowCompleteModal(false)
+      router.push("/confirm")
+    } catch (error) {
+      console.error('アップロードエラー:', error)
+      alert('ファイルのアップロードに失敗しました')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleCancel = () => {
@@ -459,9 +487,10 @@ export function DocumentRegistrationForm() {
             </Button>
             <Button
               onClick={handleComplete}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-3 text-base transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-lg"
+              disabled={uploading}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-3 text-base transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-lg disabled:opacity-50"
             >
-              完了
+              {uploading ? 'アップロード中...' : '完了'}
             </Button>
           </div>
         </div>
@@ -508,9 +537,10 @@ export function DocumentRegistrationForm() {
               </Button>
               <Button
                 onClick={handleConfirmComplete}
-                className="bg-blue-600 hover:bg-blue-700 transition-all duration-200 hover:scale-105"
+                disabled={uploading}
+                className="bg-blue-600 hover:bg-blue-700 transition-all duration-200 hover:scale-105 disabled:opacity-50"
               >
-                確認画面へ
+                {uploading ? 'アップロード中...' : '確認画面へ'}
               </Button>
             </div>
           </div>

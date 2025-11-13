@@ -49,3 +49,24 @@ export async function deleteDocument(id: string) {
   if (!response.ok) throw new Error('文書の削除に失敗しました')
   return response.json()
 }
+
+// 署名付きURL取得
+export async function getUploadUrl(fileName: string, fileType: string) {
+  const response = await fetch(`${API_ENDPOINT}/documents/upload-url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fileName, fileType })
+  })
+  if (!response.ok) throw new Error('署名付きURLの取得に失敗しました')
+  return response.json()
+}
+
+// S3へ直接アップロード
+export async function uploadToS3(url: string, file: File) {
+  const response = await fetch(url, {
+    method: 'PUT',
+    body: file,
+    headers: { 'Content-Type': file.type }
+  })
+  if (!response.ok) throw new Error('ファイルのアップロードに失敗しました')
+}

@@ -49,6 +49,12 @@ resource "aws_apigatewayv2_route" "documents_get" {
   target    = "integrations/${aws_apigatewayv2_integration.documents.id}"
 }
 
+resource "aws_apigatewayv2_route" "documents_upload_url" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /documents/upload-url"
+  target    = "integrations/${aws_apigatewayv2_integration.documents.id}"
+}
+
 resource "aws_apigatewayv2_route" "documents_create" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "POST /documents"

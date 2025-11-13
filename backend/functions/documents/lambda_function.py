@@ -11,6 +11,8 @@ app = APIGatewayHttpResolver(strip_prefixes=["/dev"])
 
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ.get('DOCUMENTS_TABLE', 'documents'))
+s3_client = boto3.client('s3')
+BUCKET_NAME = os.environ.get('DOCUMENTS_BUCKET', '')
 
 def convert_decimals(obj):
     if isinstance(obj, list):
@@ -84,6 +86,41 @@ def get_document(id: str):
     logger.info(f"Retrieved document: {id}")
     return convert_decimals(result['Item'])
 
+@app.post("/documents/upload-url")
+def get_upload_url():
+    """
+    S3署名付きURL生成API
+    
+    リクエストボディ:
+        fileName: ファイル名
+        fileType: ファイルタイプ
+    
+    戻り値:
+        uploadUrl: 署名付きURL
+        fileKey: S3キー
+    """
+    body = app.current_event.json_body
+    file_name = body.get('fileName')
+    file_type = body.get('fileType', 'application/pdf')
+    
+    # ユニークなS3キーを生成
+    timestamp = int(datetime.now().timestamp() * 1000)
+    file_key = f"documents/{timestamp}_{file_name}"
+    
+    # 署名付きURLを生成（有効期限5分）
+    upload_url = s3_client.generate_presigned_url(
+        'put_object',
+        Params={
+            'Bucket': BUCKET_NAME,
+            'Key': file_key,
+            'ContentType': file_type
+        },
+        ExpiresIn=300
+    )
+    
+    logger.info(f"Generated upload URL for: {file_key}")
+    return {'uploadUrl': upload_url, 'fileKey': file_key}
+
 @app.post("/documents")
 def create_document():
     """
@@ -97,6 +134,8 @@ def create_document():
         division: 部署
         date: 日付
         endDate: 表示終了日
+        fileKey: S3ファイルキー
+        fileName: ファイル名
     
     戻り値:
         登録された文書情報（ステータス: 201）
@@ -113,6 +152,8 @@ def create_document():
         'division': body.get('division'),
         'date': body.get('date'),
         'endDate': body.get('endDate'),
+        'fileKey': body.get('fileKey'),
+        'fileName': body.get('fileName'),
         'createdAt': datetime.now().isoformat(),
         'updatedAt': datetime.now().isoformat(),
         'status': 'draft'

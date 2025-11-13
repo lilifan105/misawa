@@ -22,6 +22,8 @@ interface FormData {
   division: string
   date: string
   endDate: string
+  fileKey?: string
+  fileName?: string
 }
 
 export default function ConfirmPage() {
@@ -112,6 +114,11 @@ export default function ConfirmPage() {
                       <div className="flex-1 text-sm">
                         {formData.date || '-'} 〜 {formData.endDate || '-'}
                       </div>
+                    </div>
+
+                    <div className="flex gap-4 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                      <div className="w-32 text-sm font-medium text-gray-700">PDFファイル</div>
+                      <div className="flex-1 text-sm">{formData.fileName || '-'}</div>
                     </div>
                   </div>
 
