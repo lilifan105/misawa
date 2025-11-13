@@ -29,7 +29,8 @@ def list_documents():
     文書一覧取得API
     
     クエリパラメータ:
-        category (optional): カテゴリでフィルタリング
+        topCategory (optional): 大カテゴリIDでフィルタリング
+        categories (optional): サブカテゴリIDでフィルタリング（カンマ区切り）
         title (optional): タイトルで部分一致検索
     
     戻り値:
@@ -42,10 +43,19 @@ def list_documents():
     filter_expressions = []
     expr_attr_values = {}
     
-    # カテゴリフィルタ
-    if params.get('category'):
-        filter_expressions.append('category = :cat')
-        expr_attr_values[':cat'] = params['category']
+    # 大カテゴリフィルタ
+    if params.get('topCategory'):
+        filter_expressions.append('topCategory = :topCat')
+        expr_attr_values[':topCat'] = params['topCategory']
+    
+    # サブカテゴリフィルタ
+    if params.get('categories'):
+        cat_ids = params['categories'].split(',')
+        cat_conditions = []
+        for i, cat_id in enumerate(cat_ids):
+            cat_conditions.append(f'contains(categories, :cat{i})')
+            expr_attr_values[f':cat{i}'] = cat_id
+        filter_expressions.append(f"({' OR '.join(cat_conditions)})")
     
     # タイトル検索（部分一致）
     if params.get('title'):
@@ -172,10 +182,14 @@ def create_document():
     # None値と空文字列を除外して追加
     for key in ['type', 'title', 'department', 'number', 'division', 'date', 'endDate',
                 'personInCharge', 'internalContact', 'externalContact', 'email', 
-                'distributionTarget', 'fileKey', 'fileName']:
+                'distributionTarget', 'fileKey', 'fileName', 'topCategory']:
         value = body.get(key)
         if value is not None and value != '':
             item[key] = value
+    
+    # categoriesはリスト型
+    if body.get('categories'):
+        item['categories'] = body['categories']
     
     table.put_item(Item=item)
     logger.info(f"Created document: {doc_id}")

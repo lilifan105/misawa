@@ -5,7 +5,7 @@ import type React from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { deleteDocument as apiDeleteDocument, getDocuments } from "@/lib/api"
-import { ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Edit, MoreVertical, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, ChevronsLeft, ChevronsRight, Edit, MoreVertical, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 
@@ -25,6 +25,8 @@ interface Document {
   department: string
   number: string
   division: string
+  topCategory?: string
+  categories?: string[]
 }
 
 export function DocumentListPage() {
@@ -32,11 +34,28 @@ export function DocumentListPage() {
   const [selectedCategory, setSelectedCategory] = useState("メーカー発信文書")
   const [titleSearch, setTitleSearch] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["メーカー発信文書"]))
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(["maker"]))
+  const [checkedCategories, setCheckedCategories] = useState<Set<string>>(new Set())
+  const [selectedTopCategory, setSelectedTopCategory] = useState<string | null>("maker")
+  const [sortField, setSortField] = useState<'type' | 'date' | 'title' | 'endDate' | null>(null)
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [documentToDelete, setDocumentToDelete] = useState<string | null>(null)
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
+
+  // typeからtopCategoryへのマッピング
+  const typeToTopCategory: Record<string, string> = {
+    '通達': 'internal',
+    '連絡': 'internal',
+    '規定': 'internal',
+    'お知らせ': 'internal',
+    '報告書': 'internal',
+    '製品情報': 'maker',
+    '技術情報': 'maker',
+    'マニュアル': 'manual',
+    '会議資料': 'meeting'
+  }
 
   const categories: Category[] = [
     {
@@ -126,7 +145,7 @@ export function DocumentListPage() {
   const fetchDocuments = async (searchTitle?: string) => {
     try {
       setLoading(true)
-      const params: { title?: string } = {}
+      const params: any = {}
       if (searchTitle) params.title = searchTitle
       
       const response = await getDocuments(params)
@@ -141,7 +160,7 @@ export function DocumentListPage() {
         division: doc.division || ''
       }))
       setAllDocuments(docs)
-      setCurrentPage(1) // 検索後は1ページ目に戻る
+      setCurrentPage(1)
     } catch (error) {
       console.error('文書一覧の取得に失敗:', error)
     } finally {
@@ -153,43 +172,154 @@ export function DocumentListPage() {
     fetchDocuments()
   }, [])
 
+  const findCategoryById = (id: string, cats: Category[]): Category | null => {
+    for (const cat of cats) {
+      if (cat.id === id) return cat
+      if (cat.children) {
+        const found = findCategoryById(id, cat.children)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
+  const getAllSubCategoryIds = (category: Category): string[] => {
+    let ids: string[] = []
+    if (category.children) {
+      for (const child of category.children) {
+        ids.push(child.id)
+        ids = ids.concat(getAllSubCategoryIds(child))
+      }
+    }
+    return ids
+  }
+
+  const getFilteredDocuments = () => {
+    let filtered = allDocuments
+
+    // 大カテゴリでフィルタ
+    if (selectedTopCategory) {
+      const topCat = categories.find(c => c.id === selectedTopCategory)
+      if (topCat) {
+        // typeフィールドが大カテゴリ名またはサブカテゴリ名を含むかチェック
+        filtered = filtered.filter(doc => {
+          // 大カテゴリ名でマッチ
+          if (doc.type.includes(topCat.name)) return true
+          // サブカテゴリ名でマッチ
+          return getAllSubCategories(topCat).some(sub => doc.type.includes(sub.name))
+        })
+      }
+    }
+
+    // チェックされたサブカテゴリでさらにフィルタ
+    if (checkedCategories.size > 0) {
+      filtered = filtered.filter(doc => {
+        return Array.from(checkedCategories).some(catId => {
+          const category = findCategoryById(catId, categories)
+          return category && doc.type.includes(category.name)
+        })
+      })
+    }
+
+    return filtered
+  }
+
+  const getAllSubCategories = (category: Category): Category[] => {
+    let subs: Category[] = []
+    if (category.children) {
+      for (const child of category.children) {
+        subs.push(child)
+        subs = subs.concat(getAllSubCategories(child))
+      }
+    }
+    return subs
+  }
+
+  const getSortedDocuments = (docs: Document[]) => {
+    if (!sortField) return docs
+    return [...docs].sort((a, b) => {
+      const aVal = a[sortField]
+      const bVal = b[sortField]
+      const comparison = aVal.localeCompare(bVal)
+      return sortOrder === 'asc' ? comparison : -comparison
+    })
+  }
+
+  const handleSort = (field: 'type' | 'date' | 'title' | 'endDate') => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
+  const filteredDocuments = getSortedDocuments(getFilteredDocuments())
   const itemsPerPage = 10
-  const totalPages = Math.ceil(allDocuments.length / itemsPerPage)
+  const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
-  const currentDocuments = allDocuments.slice(startIndex, endIndex)
+  const currentDocuments = filteredDocuments.slice(startIndex, endIndex)
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages) return
     setCurrentPage(newPage)
   }
 
-  const toggleCategory = (categoryId: string) => {
-    const newExpanded = new Set(expandedCategories)
-    if (newExpanded.has(categoryId)) {
-      newExpanded.delete(categoryId)
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [checkedCategories, selectedTopCategory])
+
+  const toggleCategory = (categoryId: string, isTopLevel: boolean) => {
+    if (isTopLevel) {
+      if (expandedCategories.has(categoryId)) {
+        setExpandedCategories(new Set())
+        setSelectedTopCategory(null)
+      } else {
+        setExpandedCategories(new Set([categoryId]))
+        setSelectedTopCategory(categoryId)
+        setCheckedCategories(new Set())
+      }
     } else {
-      newExpanded.add(categoryId)
+      const newExpanded = new Set(expandedCategories)
+      if (newExpanded.has(categoryId)) {
+        newExpanded.delete(categoryId)
+      } else {
+        newExpanded.add(categoryId)
+      }
+      setExpandedCategories(newExpanded)
     }
-    setExpandedCategories(newExpanded)
+  }
+
+  const toggleCheckbox = (categoryId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const newChecked = new Set(checkedCategories)
+    if (newChecked.has(categoryId)) {
+      newChecked.delete(categoryId)
+    } else {
+      newChecked.add(categoryId)
+    }
+    setCheckedCategories(newChecked)
   }
 
   const renderCategory = (category: Category, level = 0) => {
     const isExpanded = expandedCategories.has(category.id)
     const hasChildren = category.children && category.children.length > 0
+    const isChecked = checkedCategories.has(category.id)
+    const isTopLevel = level === 0
 
     return (
       <div key={category.id}>
         <div
           className={`flex items-center gap-2 py-2 px-3 cursor-pointer transition-all duration-200 ${
-            level === 0
+            isTopLevel
               ? "mx-2 mb-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg shadow-sm hover:shadow-md hover:scale-[1.02] font-medium"
               : "hover:bg-blue-50 text-gray-700 hover:translate-x-1"
           }`}
-          style={{ paddingLeft: level === 0 ? "12px" : `${level * 16 + 12}px` }}
+          style={{ paddingLeft: isTopLevel ? "12px" : `${level * 16 + 12}px` }}
           onClick={() => {
             if (hasChildren) {
-              toggleCategory(category.id)
+              toggleCategory(category.id, isTopLevel)
             }
             setSelectedCategory(category.name)
           }}
@@ -197,17 +327,26 @@ export function DocumentListPage() {
           {hasChildren ? (
             isExpanded ? (
               <ChevronDown
-                className={`w-4 h-4 transition-transform duration-200 ${level === 0 ? "text-white" : "text-gray-600"}`}
+                className={`w-4 h-4 transition-transform duration-200 ${isTopLevel ? "text-white" : "text-gray-600"}`}
               />
             ) : (
               <ChevronRight
-                className={`w-4 h-4 transition-transform duration-200 ${level === 0 ? "text-white" : "text-gray-600"}`}
+                className={`w-4 h-4 transition-transform duration-200 ${isTopLevel ? "text-white" : "text-gray-600"}`}
               />
             )
           ) : (
             <span className="w-4"></span>
           )}
-          <span className={`text-sm ${level === 0 ? "text-white" : "text-blue-700 hover:underline"}`}>
+          {!isTopLevel && (
+            <input
+              type="checkbox"
+              checked={isChecked}
+              onChange={(e) => toggleCheckbox(category.id, e as any)}
+              onClick={(e) => e.stopPropagation()}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+          )}
+          <span className={`text-sm ${isTopLevel ? "text-white" : "text-blue-700 hover:underline"}`}>
             {category.name}
           </span>
         </div>
@@ -406,10 +545,50 @@ export function DocumentListPage() {
                   <thead className="bg-gray-100 border-b">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 w-16">操作</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">文書種類</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">日付</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">タイトル</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">表示終了日</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">
+                        <button
+                          onClick={() => handleSort('type')}
+                          className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                        >
+                          文書種類
+                          {sortField === 'type' && (
+                            sortOrder === 'asc' ? <ArrowUp className="w-4 h-4 text-blue-600" /> : <ArrowDown className="w-4 h-4 text-blue-600" />
+                          )}
+                        </button>
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">
+                        <button
+                          onClick={() => handleSort('date')}
+                          className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                        >
+                          日付
+                          {sortField === 'date' && (
+                            sortOrder === 'asc' ? <ArrowUp className="w-4 h-4 text-blue-600" /> : <ArrowDown className="w-4 h-4 text-blue-600" />
+                          )}
+                        </button>
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">
+                        <button
+                          onClick={() => handleSort('title')}
+                          className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                        >
+                          タイトル
+                          {sortField === 'title' && (
+                            sortOrder === 'asc' ? <ArrowUp className="w-4 h-4 text-blue-600" /> : <ArrowDown className="w-4 h-4 text-blue-600" />
+                          )}
+                        </button>
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">
+                        <button
+                          onClick={() => handleSort('endDate')}
+                          className="flex items-center gap-1 hover:text-blue-600 transition-colors"
+                        >
+                          表示終了日
+                          {sortField === 'endDate' && (
+                            sortOrder === 'asc' ? <ArrowUp className="w-4 h-4 text-blue-600" /> : <ArrowDown className="w-4 h-4 text-blue-600" />
+                          )}
+                        </button>
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">発番部署</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">発番番号</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-700">部署</th>
@@ -462,7 +641,7 @@ export function DocumentListPage() {
 
           <div className="bg-white border-t px-6 py-3 flex items-center justify-between flex-shrink-0">
             <div className="text-sm text-gray-600 animate-in fade-in duration-300">
-              全 {allDocuments.length} 件 ({startIndex + 1}-{Math.min(endIndex, allDocuments.length)} 件を表示)
+              全 {filteredDocuments.length} 件 ({startIndex + 1}-{Math.min(endIndex, filteredDocuments.length)} 件を表示)
             </div>
             <div className="flex items-center gap-2">
               <Button
