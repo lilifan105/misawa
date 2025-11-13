@@ -1,15 +1,16 @@
 "use client"
 
+import { Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { SystemHeader } from "@/components/system-header"
 import { DocumentRegistrationForm } from "@/components/document-registration-form"
 
-export default function RegisterPage() {
+function RegisterContent() {
   const searchParams = useSearchParams()
   const documentId = searchParams.get('id')
   
   return (
-    <main className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+    <>
       <SystemHeader
         breadcrumbs={[
           { label: "トップページ", href: "/" },
@@ -19,6 +20,16 @@ export default function RegisterPage() {
         ]}
       />
       <DocumentRegistrationForm documentId={documentId} />
+    </>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <main className="h-screen flex flex-col bg-gray-50 overflow-hidden">
+      <Suspense fallback={<div>Loading...</div>}>
+        <RegisterContent />
+      </Suspense>
     </main>
   )
 }
