@@ -50,8 +50,15 @@ export function DocumentRegistrationForm() {
   }
 
   const handleComplete = () => {
-    if (!formData.type || !formData.title || !formData.department) {
-      alert('必須項目（文書種類、タイトル、発信部門）を入力してください')
+    // 必須項目のバリデーション
+    const errors = []
+    if (!formData.type) errors.push('文書種類')
+    if (!formData.title?.trim()) errors.push('タイトル')
+    if (!formData.department?.trim()) errors.push('発信部門・部')
+    if (!selectedFile) errors.push('PDFファイル')
+    
+    if (errors.length > 0) {
+      alert(`以下の必須項目を入力してください：\n${errors.join('、')}`)
       return
     }
     setShowCompleteModal(true)
@@ -71,9 +78,19 @@ export function DocumentRegistrationForm() {
       // 2. S3へ直接アップロード
       await uploadToS3(uploadUrl, selectedFile)
       
-      // 3. ファイル情報を保存
-      const dataWithFile = { ...formData, fileKey, fileName: selectedFile.name }
-      sessionStorage.setItem('documentFormData', JSON.stringify(dataWithFile))
+      // 3. 空文字列を除外してデータを保存
+      const cleanedData = {
+        type: formData.type,
+        title: formData.title.trim(),
+        department: formData.department.trim(),
+        ...(formData.number?.trim() && { number: formData.number.trim() }),
+        ...(formData.division?.trim() && { division: formData.division.trim() }),
+        ...(formData.date && { date: formData.date }),
+        ...(formData.endDate && { endDate: formData.endDate }),
+        fileKey,
+        fileName: selectedFile.name
+      }
+      sessionStorage.setItem('documentFormData', JSON.stringify(cleanedData))
       
       setShowCompleteModal(false)
       router.push("/confirm")
