@@ -1,6 +1,6 @@
 import os
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import boto3
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
@@ -121,7 +121,8 @@ def get_upload_url():
     file_type = body.get('fileType', 'application/pdf')
     
     # ユニークなS3キーを生成
-    timestamp = int(datetime.now().timestamp() * 1000)
+    jst = timezone(timedelta(hours=9))
+    timestamp = int(datetime.now(jst).timestamp() * 1000)
     file_key = f"documents/{timestamp}_{file_name}"
     
     # 署名付きURLを生成（有効期限5分）
@@ -158,23 +159,23 @@ def create_document():
         登録された文書情報（ステータス: 201）
     """
     body = app.current_event.json_body
-    doc_id = str(int(datetime.now().timestamp() * 1000))
+    jst = timezone(timedelta(hours=9))
+    doc_id = str(int(datetime.now(jst).timestamp() * 1000))
     
     item = {
         'id': doc_id,
-        'type': body.get('type'),
-        'title': body.get('title'),
-        'department': body.get('department'),
-        'number': body.get('number'),
-        'division': body.get('division'),
-        'date': body.get('date'),
-        'endDate': body.get('endDate'),
-        'fileKey': body.get('fileKey'),
-        'fileName': body.get('fileName'),
-        'createdAt': datetime.now().isoformat(),
-        'updatedAt': datetime.now().isoformat(),
+        'createdAt': datetime.now(jst).isoformat(),
+        'updatedAt': datetime.now(jst).isoformat(),
         'status': 'draft'
     }
+    
+    # None値と空文字列を除外して追加
+    for key in ['type', 'title', 'department', 'number', 'division', 'date', 'endDate',
+                'personInCharge', 'internalContact', 'externalContact', 'email', 
+                'distributionTarget', 'fileKey', 'fileName']:
+        value = body.get(key)
+        if value is not None and value != '':
+            item[key] = value
     
     table.put_item(Item=item)
     logger.info(f"Created document: {doc_id}")
@@ -201,9 +202,10 @@ def update_document(id: str):
         更新された文書情報
     """
     body = app.current_event.json_body
+    jst = timezone(timedelta(hours=9))
     
     update_expr = 'SET updatedAt = :updated'
-    expr_values = {':updated': datetime.now().isoformat()}
+    expr_values = {':updated': datetime.now(jst).isoformat()}
     
     for key in ['type', 'title', 'department', 'number', 'division', 'endDate']:
         if key in body:

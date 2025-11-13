@@ -9,6 +9,9 @@ yarn-error.log*
 .next/
 out/
 build/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
 
 # Environment variables
 .env
@@ -56,7 +59,6 @@ docs/**/*.png
 
 # Build artifacts
 dist/
-*.tsbuildinfo
 
 # Terraform
 infrastructure/.terraform/

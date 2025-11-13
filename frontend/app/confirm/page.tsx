@@ -12,7 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { createDocument } from "@/lib/api"
+import { createDocument, getUploadUrl, uploadToS3 } from "@/lib/api"
+import { getFile, clearFile } from "@/lib/fileStorage"
+import dynamic from 'next/dynamic'
+
+const Document = dynamic(() => import('react-pdf').then(mod => mod.Document), { ssr: false })
+const Page = dynamic(() => import('react-pdf').then(mod => mod.Page), { ssr: false })
 
 interface FormData {
   type: string
@@ -30,15 +35,44 @@ export default function ConfirmPage() {
   const router = useRouter()
   const [showRegisterModal, setShowRegisterModal] = useState(false)
   const [formData, setFormData] = useState<FormData | null>(null)
+  const [pdfFile, setPdfFile] = useState<File | null>(null)
+  const [pdfUrl, setPdfUrl] = useState<string>('')
+  const [numPages, setNumPages] = useState(0)
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
-    // セッションストレージからデータを取得
-    const savedData = sessionStorage.getItem('documentFormData')
-    if (savedData) {
-      setFormData(JSON.parse(savedData))
-    } else {
-      // データがない場合は登録画面に戻る
-      router.push('/register')
+    // react-pdfの初期化
+    if (typeof window !== 'undefined') {
+      import('react-pdf').then(mod => {
+        import('react-pdf/dist/Page/AnnotationLayer.css')
+        import('react-pdf/dist/Page/TextLayer.css')
+        mod.pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${mod.pdfjs.version}/build/pdf.worker.min.mjs`
+      })
+    }
+
+    const loadData = async () => {
+      // セッションストレージからデータを取得
+      const savedData = sessionStorage.getItem('documentFormData')
+      if (savedData) {
+        setFormData(JSON.parse(savedData))
+        // IndexedDBからファイルを取得
+        const file = await getFile()
+        if (file) {
+          setPdfFile(file)
+          setPdfUrl(URL.createObjectURL(file))
+        }
+      } else {
+        // データがない場合は登録画面に戻る
+        router.push('/register')
+      }
+    }
+    loadData()
+
+    // クリーンアップ
+    return () => {
+      if (pdfUrl) {
+        URL.revokeObjectURL(pdfUrl)
+      }
     }
   }, [])
 
@@ -47,18 +81,32 @@ export default function ConfirmPage() {
   }
 
   const handleConfirmRegister = async () => {
-    if (!formData) return
+    if (!formData || !pdfFile) return
     
+    setUploading(true)
     try {
-      await createDocument(formData)
-      // 登録成功後にセッションストレージをクリア
+      // ファイルをアップロード
+      const { uploadUrl, fileKey } = await getUploadUrl(pdfFile.name, pdfFile.type)
+      await uploadToS3(uploadUrl, pdfFile)
+      
+      // 文書を登録
+      await createDocument({
+        ...formData,
+        fileKey,
+        fileName: pdfFile.name
+      })
+      
+      // 登録成功後にセッションストレージとファイルをクリア
       sessionStorage.removeItem('documentFormData')
+      await clearFile()
       setShowRegisterModal(false)
       router.push("/complete")
     } catch (error) {
       console.error('文書の登録に失敗:', error)
       alert('文書の登録に失敗しました')
       setShowRegisterModal(false)
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -81,6 +129,7 @@ export default function ConfirmPage() {
 
               <div className="space-y-6">
                 {formData ? (
+                <>
                 <div className="grid grid-cols-2 gap-8">
                   {/* Left Column */}
                   <div className="space-y-4">
@@ -125,6 +174,31 @@ export default function ConfirmPage() {
                   {/* Right Column */}
                   <div className="space-y-4">
                     <div className="flex gap-4 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                      <div className="w-32 text-sm font-medium text-gray-700">担当</div>
+                      <div className="flex-1 text-sm">{formData.personInCharge || '-'}</div>
+                    </div>
+
+                    <div className="flex gap-4 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                      <div className="w-32 text-sm font-medium text-gray-700">連絡先(内線)</div>
+                      <div className="flex-1 text-sm">{formData.internalContact || '-'}</div>
+                    </div>
+
+                    <div className="flex gap-4 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                      <div className="w-32 text-sm font-medium text-gray-700">連絡先(外線)</div>
+                      <div className="flex-1 text-sm">{formData.externalContact || '-'}</div>
+                    </div>
+
+                    <div className="flex gap-4 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                      <div className="w-32 text-sm font-medium text-gray-700">e-mail</div>
+                      <div className="flex-1 text-sm">{formData.email || '-'}</div>
+                    </div>
+
+                    <div className="flex gap-4 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
+                      <div className="w-32 text-sm font-medium text-gray-700">配布対象</div>
+                      <div className="flex-1 text-sm whitespace-pre-wrap">{formData.distributionTarget || '-'}</div>
+                    </div>
+
+                    <div className="flex gap-4 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
                       <div className="w-32 text-sm font-medium text-gray-700">作成者名</div>
                       <div className="flex-1 text-sm">作成者名</div>
                     </div>
@@ -140,6 +214,32 @@ export default function ConfirmPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* PDFプレビュー */}
+                {pdfUrl && (
+                  <div className="mt-8 border-t pt-6">
+                    <h3 className="text-lg font-bold mb-4">PDFプレビュー</h3>
+                    <div className="border rounded-lg p-4 bg-gray-50 max-h-[600px] overflow-auto">
+                      <Document
+                        file={pdfUrl}
+                        onLoadSuccess={({ numPages }) => setNumPages(numPages)}
+                        loading={<div className="text-center py-8 text-gray-500">読み込み中...</div>}
+                      >
+                        {Array.from(new Array(numPages), (el, index) => (
+                          <div key={`page_${index + 1}`} className="mb-4">
+                            <Page
+                              pageNumber={index + 1}
+                              width={800}
+                              renderTextLayer={false}
+                              renderAnnotationLayer={false}
+                            />
+                          </div>
+                        ))}
+                      </Document>
+                    </div>
+                  </div>
+                )}
+                </>
                 ) : (
                   <div className="text-center py-8 text-gray-500">読み込み中...</div>
                 )}
@@ -152,16 +252,20 @@ export default function ConfirmPage() {
           <div className="flex justify-center gap-4">
             <Button
               variant="outline"
-              onClick={() => router.back()}
+              onClick={() => {
+                sessionStorage.setItem('fromConfirm', 'true')
+                router.push('/register')
+              }}
               className="px-12 py-3 text-base border-gray-400 text-gray-700 hover:bg-gray-100 bg-transparent transition-all duration-200 hover:scale-105 active:scale-95"
             >
               戻る
             </Button>
             <Button
               onClick={handleRegister}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-3 text-base transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-lg"
+              disabled={uploading}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-3 text-base transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-lg disabled:opacity-50"
             >
-              登録
+              {uploading ? '登録中...' : '登録'}
             </Button>
           </div>
         </div>
@@ -183,9 +287,10 @@ export default function ConfirmPage() {
             </Button>
             <Button
               onClick={handleConfirmRegister}
-              className="bg-blue-600 hover:bg-blue-700 transition-all hover:scale-105"
+              disabled={uploading}
+              className="bg-blue-600 hover:bg-blue-700 transition-all hover:scale-105 disabled:opacity-50"
             >
-              登録
+              {uploading ? '登録中...' : '登録'}
             </Button>
           </DialogFooter>
         </DialogContent>

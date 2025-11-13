@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createDocument, getUploadUrl, uploadToS3, getDocument, updateDocument } from "@/lib/api"
 import { useEffect } from "react"
+import { saveFile, getFile, clearFile } from "@/lib/fileStorage"
 
 export function DocumentRegistrationForm({ documentId }: { documentId?: string | null }) {
   const [activeTab, setActiveTab] = useState<"attributes" | "display">("attributes")
@@ -24,7 +25,12 @@ export function DocumentRegistrationForm({ documentId }: { documentId?: string |
     number: '',
     division: '',
     date: '',
-    endDate: ''
+    endDate: '',
+    personInCharge: '',
+    internalContact: '',
+    externalContact: '',
+    email: '',
+    distributionTarget: ''
   })
   const [pdfFile, setPdfFile] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -34,6 +40,43 @@ export function DocumentRegistrationForm({ documentId }: { documentId?: string |
   const router = useRouter()
 
   useEffect(() => {
+    const loadData = async () => {
+      // 確認画面から戻ってきた場合のみセッションストレージからデータを復元
+      const savedData = sessionStorage.getItem('documentFormData')
+      const fromConfirm = sessionStorage.getItem('fromConfirm')
+      
+      if (savedData && !documentId && fromConfirm === 'true') {
+        const data = JSON.parse(savedData)
+        setFormData({
+          type: data.type || '',
+          title: data.title || '',
+          department: data.department || '',
+          number: data.number || '',
+          division: data.division || '',
+          date: data.date || '',
+          endDate: data.endDate || '',
+          personInCharge: data.personInCharge || '',
+          internalContact: data.internalContact || '',
+          externalContact: data.externalContact || '',
+          email: data.email || '',
+          distributionTarget: data.distributionTarget || ''
+        })
+        // IndexedDBからファイルを復元
+        const file = await getFile()
+        if (file) {
+          setSelectedFile(file)
+          setPdfFile(URL.createObjectURL(file))
+        }
+        // フラグをクリア
+        sessionStorage.removeItem('fromConfirm')
+      } else if (!documentId) {
+        // 新規登録の場合はセッションストレージとファイルをクリア
+        sessionStorage.removeItem('documentFormData')
+        await clearFile()
+      }
+    }
+    loadData()
+
     if (documentId) {
       setIsEditMode(true)
       setLoading(true)
@@ -46,7 +89,12 @@ export function DocumentRegistrationForm({ documentId }: { documentId?: string |
             number: doc.number || '',
             division: doc.division || '',
             date: doc.date || '',
-            endDate: doc.endDate || ''
+            endDate: doc.endDate || '',
+            personInCharge: doc.personInCharge || '',
+            internalContact: doc.internalContact || '',
+            externalContact: doc.externalContact || '',
+            email: doc.email || '',
+            distributionTarget: doc.distributionTarget || ''
           })
           if (doc.fileName) {
             setPdfFile(doc.downloadUrl || '')
@@ -81,6 +129,7 @@ export function DocumentRegistrationForm({ documentId }: { documentId?: string |
     if (!formData.type) errors.push('文書種類')
     if (!formData.title?.trim()) errors.push('タイトル')
     if (!formData.department?.trim()) errors.push('発信部門・部')
+    if (!formData.date) errors.push('掲示期間（開始日）')
     if (!isEditMode && !selectedFile) errors.push('PDFファイル')
     
     if (errors.length > 0) {
@@ -90,18 +139,7 @@ export function DocumentRegistrationForm({ documentId }: { documentId?: string |
     
     setUploading(true)
     try {
-      let fileKey = ''
-      let fileName = ''
-      
-      // 新しいファイルが選択されている場合のみアップロード
-      if (selectedFile) {
-        const { uploadUrl, fileKey: newFileKey } = await getUploadUrl(selectedFile.name, selectedFile.type)
-        await uploadToS3(uploadUrl, selectedFile)
-        fileKey = newFileKey
-        fileName = selectedFile.name
-      }
-      
-      const dataToSave = {
+      const dataToSave: any = {
         type: formData.type,
         title: formData.title.trim(),
         department: formData.department.trim(),
@@ -109,23 +147,35 @@ export function DocumentRegistrationForm({ documentId }: { documentId?: string |
         ...(formData.division?.trim() && { division: formData.division.trim() }),
         ...(formData.date && { date: formData.date }),
         ...(formData.endDate && { endDate: formData.endDate }),
-        ...(fileKey && { fileKey }),
-        ...(fileName && { fileName })
+        ...(formData.personInCharge?.trim() && { personInCharge: formData.personInCharge.trim() }),
+        ...(formData.internalContact?.trim() && { internalContact: formData.internalContact.trim() }),
+        ...(formData.externalContact?.trim() && { externalContact: formData.externalContact.trim() }),
+        ...(formData.email?.trim() && { email: formData.email.trim() }),
+        ...(formData.distributionTarget?.trim() && { distributionTarget: formData.distributionTarget.trim() }),
+        ...(selectedFile && { fileName: selectedFile.name })
       }
       
       if (isEditMode) {
-        // 編集モード：直接更新
+        // 編集モード：ファイルアップロード後に更新
+        if (selectedFile && selectedFile.size) {
+          const { uploadUrl, fileKey } = await getUploadUrl(selectedFile.name, selectedFile.type)
+          await uploadToS3(uploadUrl, selectedFile)
+          dataToSave.fileKey = fileKey
+        }
         await updateDocument(documentId!, dataToSave)
         alert('文書を更新しました')
         router.push(`/view/${documentId}`)
       } else {
-        // 新規登録：確認画面へ
+        // 新規登録：ファイルをIndexedDBに保存して確認画面へ
+        if (selectedFile) {
+          await saveFile(selectedFile)
+        }
         sessionStorage.setItem('documentFormData', JSON.stringify(dataToSave))
         router.push("/confirm")
       }
     } catch (error) {
       console.error('処理エラー:', error)
-      alert(isEditMode ? '文書の更新に失敗しました' : 'ファイルのアップロードに失敗しました')
+      alert(isEditMode ? '文書の更新に失敗しました' : 'データの保存に失敗しました')
     } finally {
       setUploading(false)
     }
@@ -135,7 +185,9 @@ export function DocumentRegistrationForm({ documentId }: { documentId?: string |
     setShowCancelModal(true)
   }
 
-  const handleConfirmCancel = () => {
+  const handleConfirmCancel = async () => {
+    sessionStorage.removeItem('documentFormData')
+    await clearFile()
     setShowCancelModal(false)
     router.push("/")
   }
@@ -272,7 +324,7 @@ export function DocumentRegistrationForm({ documentId }: { documentId?: string |
                         <Label className="w-32 pt-2 text-sm font-medium">
                           担当 <span className="text-red-500">※</span>
                         </Label>
-                        <Input className="flex-1" />
+                        <Input className="flex-1" value={formData.personInCharge} onChange={(e) => setFormData({...formData, personInCharge: e.target.value})} />
                       </div>
 
                       <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
@@ -310,7 +362,7 @@ export function DocumentRegistrationForm({ documentId }: { documentId?: string |
                       {/* Contact (Internal) */}
                       <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
                         <Label className="w-32 pt-2 text-sm font-medium">連絡先(内線)</Label>
-                        <Input className="flex-1" />
+                        <Input className="flex-1" value={formData.internalContact} onChange={(e) => setFormData({...formData, internalContact: e.target.value})} />
                       </div>
 
                       {/* Contact (External) */}
@@ -318,19 +370,19 @@ export function DocumentRegistrationForm({ documentId }: { documentId?: string |
                         <Label className="w-32 pt-2 text-sm font-medium">
                           連絡先(外線) <span className="text-red-500">※</span>
                         </Label>
-                        <Input className="flex-1" />
+                        <Input className="flex-1" value={formData.externalContact} onChange={(e) => setFormData({...formData, externalContact: e.target.value})} />
                       </div>
 
                       {/* Email */}
                       <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
                         <Label className="w-32 pt-2 text-sm font-medium">e-mail</Label>
-                        <Input type="email" className="flex-1" />
+                        <Input type="email" className="flex-1" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} />
                       </div>
 
                       {/* Distribution Target */}
                       <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
                         <Label className="w-32 pt-2 text-sm font-medium">配布対象</Label>
-                        <textarea className="flex-1 border rounded-md p-2 min-h-[100px]" />
+                        <textarea className="flex-1 border rounded-md p-2 min-h-[100px]" value={formData.distributionTarget} onChange={(e) => setFormData({...formData, distributionTarget: e.target.value})} />
                       </div>
                     </div>
                   </div>
