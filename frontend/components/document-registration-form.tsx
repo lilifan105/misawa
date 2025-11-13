@@ -9,9 +9,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createDocument, getUploadUrl, uploadToS3 } from "@/lib/api"
-import dynamic from 'next/dynamic'
-
-const PDFViewer = dynamic(() => import('./pdf-viewer'), { ssr: false })
 
 export function DocumentRegistrationForm() {
   const [activeTab, setActiveTab] = useState<"attributes" | "display">("attributes")
@@ -152,9 +149,7 @@ export function DocumentRegistrationForm() {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 overflow-hidden flex">
-          {/* Left: Form */}
-          <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6">
             <div className="bg-white border border-gray-300 rounded-lg p-6 animate-in fade-in duration-500">
               {activeTab === "attributes" && (
                 <>
@@ -198,16 +193,15 @@ export function DocumentRegistrationForm() {
                       {/* Document Number */}
                       <div className="flex items-start gap-4 pb-4 border-b border-gray-200 transition-all duration-200 hover:bg-gray-50 hover:px-2 hover:-mx-2 rounded">
                         <Label className="w-32 pt-2 text-sm font-medium">
-                          発信番号・部署 <span className="text-red-500">※</span>
+                          発信番号 <span className="text-red-500">※</span>
                         </Label>
                         <div className="flex-1 flex items-center gap-2">
-                          <Input className="flex-1" />
-                          <span className="text-sm">発</span>
-                          <Input className="w-20" />
-                          <span className="text-sm">号</span>
-                          <Button variant="outline" size="sm" className="bg-blue-500 text-white hover:bg-blue-600">
-                            発番確認
-                          </Button>
+                          <Input 
+                            className="flex-1" 
+                            value={formData.number} 
+                            onChange={(e) => setFormData({...formData, number: e.target.value})} 
+                            placeholder="発信番号を入力"
+                          />
                         </div>
                       </div>
 
@@ -471,26 +465,6 @@ export function DocumentRegistrationForm() {
                 </div>
               )}
             </div>
-          </div>
-          
-          {/* Right: PDF Preview */}
-          <div className="w-1/2 border-l bg-white p-6 overflow-hidden flex flex-col">
-            <h3 className="text-lg font-semibold mb-4">文書プレビュー</h3>
-            <div className="flex-1 border rounded-lg overflow-hidden bg-gray-100">
-              {pdfFile ? (
-                <PDFViewer fileUrl={pdfFile} />
-              ) : (
-                <div className="h-full flex items-center justify-center text-gray-400">
-                  <div className="text-center">
-                    <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                    <p className="mt-2 text-sm">ファイルを選択するとプレビューが表示されます</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
         <div className="border-t bg-white flex-shrink-0 px-6 py-4">

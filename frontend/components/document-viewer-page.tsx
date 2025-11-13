@@ -34,7 +34,7 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [document, setDocument] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [pdfUrl] = useState<string>('/sample.pdf')
+  const [pdfUrl, setPdfUrl] = useState<string>('/sample.pdf')
 
   useEffect(() => {
     const fetchDocument = async () => {
@@ -42,6 +42,10 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
         setLoading(true)
         const doc = await getDocument(documentId)
         setDocument(doc)
+        // S3からのPDF URLを設定
+        if (doc.downloadUrl) {
+          setPdfUrl(doc.downloadUrl)
+        }
       } catch (error) {
         console.error('文書の取得に失敗:', error)
       } finally {

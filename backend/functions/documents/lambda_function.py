@@ -72,7 +72,7 @@ def get_document(id: str):
         doc_id: 文書ID
     
     戻り値:
-        文書の詳細情報
+        文書の詳細情報（署名付きダウンロードURL含む）
     
     エラー:
         404: 文書が見つからない場合
@@ -83,8 +83,25 @@ def get_document(id: str):
         logger.warning(f"Document not found: {id}")
         return {'error': 'Document not found'}, 404
     
+    item = convert_decimals(result['Item'])
+    
+    # fileKeyがある場合、署名付きダウンロードURLを生成
+    if item.get('fileKey'):
+        try:
+            download_url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': BUCKET_NAME,
+                    'Key': item['fileKey']
+                },
+                ExpiresIn=3600  # 1時間有効
+            )
+            item['downloadUrl'] = download_url
+        except Exception as e:
+            logger.error(f"Failed to generate download URL: {str(e)}")
+    
     logger.info(f"Retrieved document: {id}")
-    return convert_decimals(result['Item'])
+    return item
 
 @app.post("/documents/upload-url")
 def get_upload_url():
