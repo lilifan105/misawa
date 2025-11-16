@@ -104,6 +104,7 @@ resource "aws_lambda_function" "search" {
   environment {
     variables = {
       KNOWLEDGE_BASE_ID       = var.knowledge_base_id
+      DOCUMENTS_TABLE         = var.dynamodb_table_name
       POWERTOOLS_SERVICE_NAME = "search"
       LOG_LEVEL               = "INFO"
     }

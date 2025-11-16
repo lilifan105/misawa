@@ -11,9 +11,12 @@ app = APIGatewayHttpResolver(strip_prefixes=["/dev"])
 
 # Bedrock Agent Runtimeクライアント初期化
 bedrock_agent_runtime = boto3.client('bedrock-agent-runtime')
+dynamodb = boto3.resource('dynamodb')
 
 # 環境変数からKnowledge Base IDを取得
 KNOWLEDGE_BASE_ID = os.environ.get('KNOWLEDGE_BASE_ID', '')
+DOCUMENTS_TABLE = os.environ.get('DOCUMENTS_TABLE', 'documents')
+table = dynamodb.Table(DOCUMENTS_TABLE)
 
 @app.post("/search")
 def search():
@@ -87,23 +90,40 @@ def search():
             # メタデータを取得
             metadata = item.get('metadata', {})
             
-            # S3 URIから文書IDを抽出（例: s3://bucket/documents/doc123.pdf -> doc123）
+            # S3 URIからfileKeyを抽出してDynamoDBで文書を検索
             document_id = ''
+            file_key = ''
             if s3_uri:
-                parts = s3_uri.split('/')
-                if len(parts) > 0:
-                    filename = parts[-1]
-                    document_id = filename.rsplit('.', 1)[0]
+                # s3://bucket/documents/123_file.pdf -> documents/123_file.pdf
+                parts = s3_uri.split('/', 3)
+                if len(parts) > 3:
+                    file_key = parts[3]
+                    
+                    # DynamoDBでfileKeyが一致する文書を検索
+                    try:
+                        response = table.scan(
+                            FilterExpression='fileKey = :fk',
+                            ExpressionAttributeValues={':fk': file_key}
+                        )
+                        if response.get('Items'):
+                            document_id = response['Items'][0]['id']
+                            logger.info(f"Found document ID: {document_id} for fileKey: {file_key}")
+                    except Exception as scan_error:
+                        logger.error(f"DynamoDB scan error: {str(scan_error)}")
+                        # フォールバック: ファイル名からIDを抽出
+                        filename = parts[-1]
+                        document_id = filename.rsplit('.', 1)[0]
             
-            # 結果を追加
-            results.append({
-                'documentId': document_id,
-                'title': metadata.get('title', document_id),
-                'content': text,
-                'score': item.get('score', 0),
-                's3Uri': s3_uri,
-                'metadata': metadata
-            })
+            # 結果を追加（document_idが見つかった場合のみ）
+            if document_id:
+                results.append({
+                    'documentId': document_id,
+                    'title': metadata.get('title', document_id),
+                    'content': text,
+                    'score': item.get('score', 0),
+                    's3Uri': s3_uri,
+                    'metadata': metadata
+                })
         
         logger.info(f"検索結果: {len(results)}件")
         

@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { searchDocuments } from "@/lib/api"
-import { Search, FileText, Loader2 } from "lucide-react"
+import { FileText, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useState } from "react"
 
 interface SearchResult {
   documentId: string
@@ -14,10 +14,7 @@ interface SearchResult {
   content: string
   score: number
   s3Uri: string
-  metadata: {
-    pageNumber?: number
-    [key: string]: any
-  }
+  metadata: Record<string, any>
 }
 
 export function RagSearchPage() {
@@ -26,16 +23,20 @@ export function RagSearchPage() {
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
 
-  // 検索実行
   const handleSearch = async () => {
     if (!query.trim()) return
 
     setLoading(true)
     setSearched(true)
+    setCurrentPage(1)
     try {
-      const response = await searchDocuments(query, 10)
-      setResults(response.body?.results || response.results || [])
+      const response = await searchDocuments(query, 50)
+      console.log("検索レスポンス:", response)
+      const results = response.body?.results || response.results || []
+      console.log("検索結果:", results)
+      setResults(results)
     } catch (error) {
       console.error("検索エラー:", error)
       setResults([])
@@ -44,80 +45,95 @@ export function RagSearchPage() {
     }
   }
 
-  // Enterキーで検索
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSearch()
-    }
-  }
-
-  // 文書をクリックして詳細表示
-  const handleDocumentClick = (result: SearchResult) => {
-    const pageNumber = result.metadata?.pageNumber || 1
-    router.push(`/view/${result.documentId}?page=${pageNumber}`)
-  }
-
-  // スコアを百分率に変換
   const formatScore = (score: number) => {
     return `${Math.round(score * 100)}%`
   }
 
+  const handleDocumentClick = (result: SearchResult) => {
+    const page = result.metadata?.pageNumber || result.metadata?.page
+    if (page) {
+      router.push(`/view/${result.documentId}?page=${page}`)
+    } else {
+      router.push(`/view/${result.documentId}`)
+    }
+  }
+
+
+
   return (
-    <div className="container mx-auto p-6 max-w-6xl">
-      {/* 検索ヘッダー */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">文書検索</h1>
-        <p className="text-muted-foreground">
-          AIを使った全文検索で、関連する文書を素早く見つけます
-        </p>
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="bg-white border-b px-8 py-3 flex items-center justify-between flex-shrink-0">
+        <h2 className="text-lg font-bold text-gray-800 animate-in fade-in duration-300">AI全文検索</h2>
+        <Button
+          variant="outline"
+          onClick={() => router.push("/")}
+          className="border-blue-500 text-blue-600 hover:bg-blue-50 bg-transparent transition-all duration-200 hover:scale-105"
+        >
+          一覧ページに戻る
+        </Button>
       </div>
 
-      {/* 検索バー */}
-      <div className="mb-8">
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              type="text"
-              placeholder="検索キーワードを入力してください..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyPress={handleKeyPress}
-              className="pl-10"
-              disabled={loading}
-            />
-          </div>
-          <Button onClick={handleSearch} disabled={loading || !query.trim()}>
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                検索中...
-              </>
-            ) : (
-              <>
-                <Search className="mr-2 h-4 w-4" />
-                検索
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {/* 検索結果 */}
-      {searched && (
-        <div>
-          {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex-1 bg-gray-50 flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="bg-white rounded-lg border p-4 mb-4 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium whitespace-nowrap">検索</label>
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                className="flex-1 transition-all duration-200 focus:scale-[1.01]"
+                placeholder="文書の内容を検索"
+              />
+              <Button
+                onClick={handleSearch}
+                disabled={loading || !query.trim()}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 transition-all duration-200 hover:scale-105 active:scale-95"
+              >
+                {loading ? "検索中..." : "検索"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setQuery("")
+                  setResults([])
+                  setSearched(false)
+                  setCurrentPage(1)
+                }}
+                className="px-6 bg-transparent transition-all duration-200 hover:scale-105 active:scale-95"
+              >
+                クリア
+              </Button>
             </div>
-          ) : results.length > 0 ? (
-            <>
-              <div className="mb-4 text-sm text-muted-foreground">
-                {results.length}件の関連文書が見つかりました
+          </div>
+
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-gray-500">検索中...</div>
+            </div>
+          )}
+
+          {!loading && searched && results.length === 0 && (
+            <div className="text-center py-12">
+              <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-600">検索結果が見つかりませんでした</p>
+            </div>
+          )}
+
+          {!loading && !searched && (
+            <div className="text-center py-12">
+              <Search className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-600">キーワードを入力して検索してください</p>
+            </div>
+          )}
+
+          {!loading && results.length > 0 && (
+            <div className="max-w-4xl mx-auto space-y-2">
+              <div className="text-sm text-gray-600 mb-3">
+                {results.length}件の結果が見つかりました
               </div>
-              <div className="space-y-4">
-                {results.map((result, index) => (
-                  <Card
+              {results.map((result, index) => (
+                <Card
                     key={index}
                     className="cursor-pointer hover:shadow-lg transition-shadow"
                     onClick={() => handleDocumentClick(result)}
@@ -148,31 +164,13 @@ export function RagSearchPage() {
                       </p>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-lg font-medium mb-2">検索結果が見つかりませんでした</p>
-              <p className="text-sm text-muted-foreground">
-                別のキーワードで検索してみてください
-              </p>
+              ))}
             </div>
           )}
         </div>
-      )}
 
-      {/* 初期状態 */}
-      {!searched && (
-        <div className="text-center py-12">
-          <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-lg font-medium mb-2">検索を開始してください</p>
-          <p className="text-sm text-muted-foreground">
-            キーワードを入力して、関連する文書を検索できます
-          </p>
-        </div>
-      )}
+
+      </div>
     </div>
   )
 }
