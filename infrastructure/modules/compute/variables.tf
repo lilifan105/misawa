@@ -25,3 +25,13 @@ variable "s3_bucket_arn" {
 variable "external_api_key" {
   type = string
 }
+
+variable "knowledge_base_id" {
+  type        = string
+  description = "Bedrock Knowledge Base ID for RAG search"
+}
+
+variable "data_source_id" {
+  type        = string
+  description = "Bedrock Data Source ID for ingestion"
+}

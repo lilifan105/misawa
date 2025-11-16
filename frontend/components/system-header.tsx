@@ -24,7 +24,10 @@ export function SystemHeader({ showActionButtons = false, breadcrumbs }: SystemH
             >
               新規登録
             </Button>
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95">
+            <Button
+              onClick={() => router.push("/search")}
+              className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 transition-all duration-200 hover:scale-105 hover:shadow-lg active:scale-95"
+            >
               全文検索
             </Button>
           </div>

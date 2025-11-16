@@ -19,7 +19,7 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 }
 
 resource "aws_iam_role_policy" "lambda_access" {
-  name = "dynamodb-s3-access"
+  name = "dynamodb-s3-bedrock-access"
   role = aws_iam_role.lambda_exec.id
 
   policy = jsonencode({
@@ -48,6 +48,15 @@ resource "aws_iam_role_policy" "lambda_access" {
           "s3:DeleteObject"
         ]
         Resource = "${var.s3_bucket_arn}/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "bedrock:Retrieve",
+          "bedrock:RetrieveAndGenerate",
+          "bedrock:StartIngestionJob"
+        ]
+        Resource = "*"
       }
     ]
   })
@@ -68,6 +77,8 @@ resource "aws_lambda_function" "documents" {
     variables = {
       DOCUMENTS_TABLE         = var.dynamodb_table_name
       DOCUMENTS_BUCKET        = var.s3_bucket_id
+      KNOWLEDGE_BASE_ID       = var.knowledge_base_id
+      DATA_SOURCE_ID          = var.data_source_id
       POWERTOOLS_SERVICE_NAME = "documents"
       LOG_LEVEL               = "INFO"
     }
@@ -92,6 +103,7 @@ resource "aws_lambda_function" "search" {
 
   environment {
     variables = {
+      KNOWLEDGE_BASE_ID       = var.knowledge_base_id
       POWERTOOLS_SERVICE_NAME = "search"
       LOG_LEVEL               = "INFO"
     }

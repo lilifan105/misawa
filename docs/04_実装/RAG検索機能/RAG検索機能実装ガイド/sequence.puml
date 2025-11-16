@@ -1,0 +1,75 @@
+@startuml RAG検索シーケンス図
+
+actor "ユーザー" as user
+participant "検索画面\n(Next.js)" as frontend
+participant "API Gateway" as api
+participant "Search Lambda" as lambda
+participant "Bedrock\nKnowledge Base" as kb
+database "S3 Vectors" as vectors
+database "S3 Bucket\n(文書)" as s3
+
+== 検索フロー ==
+
+user -> frontend : 検索キーワード入力
+activate frontend
+
+frontend -> api : POST /search\n{"query": "技術情報"}
+activate api
+
+api -> lambda : 検索リクエスト
+activate lambda
+
+lambda -> lambda : クエリ検証
+lambda -> kb : Retrieve API\n(knowledgeBaseId, query)
+activate kb
+
+kb -> vectors : ベクトル検索\n(類似度計算)
+activate vectors
+vectors --> kb : マッチしたベクトル
+deactivate vectors
+
+kb -> s3 : 文書チャンク取得
+activate s3
+s3 --> kb : テキストチャンク
+deactivate s3
+
+kb --> lambda : 検索結果\n(content, score, metadata)
+deactivate kb
+
+lambda -> lambda : 結果整形\n(documentId抽出)
+
+lambda --> api : レスポンス\n{"results": [...]}
+deactivate lambda
+
+api --> frontend : 検索結果JSON
+deactivate api
+
+frontend -> frontend : 結果表示\n(カード形式)
+frontend --> user : 検索結果一覧
+deactivate frontend
+
+== 文書プレビュー ==
+
+user -> frontend : 文書カードクリック
+activate frontend
+
+frontend -> frontend : ページ番号取得\n(metadata.pageNumber)
+frontend -> user : /view/{id}?page=5\nに遷移
+deactivate frontend
+
+note right of kb
+  検索結果には以下が含まれる:
+  - content: マッチしたテキスト
+  - score: 関連度スコア
+  - s3Uri: 文書のS3パス
+  - metadata: ページ番号等
+end note
+
+note right of vectors
+  ベクトル検索の特徴:
+  - セマンティック検索
+  - 類似度ベースのランキング
+  - サブセカンドレイテンシ
+end note
+
+@enduml

@@ -12,7 +12,10 @@ app = APIGatewayHttpResolver(strip_prefixes=["/dev"])
 dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(os.environ.get('DOCUMENTS_TABLE', 'documents'))
 s3_client = boto3.client('s3')
+bedrock_agent = boto3.client('bedrock-agent')
 BUCKET_NAME = os.environ.get('DOCUMENTS_BUCKET', '')
+KNOWLEDGE_BASE_ID = os.environ.get('KNOWLEDGE_BASE_ID', '')
+DATA_SOURCE_ID = os.environ.get('DATA_SOURCE_ID', '')
 
 def convert_decimals(obj):
     if isinstance(obj, list):
@@ -193,6 +196,17 @@ def create_document():
     
     table.put_item(Item=item)
     logger.info(f"Created document: {doc_id}")
+    
+    # PDFファイルがアップロードされた場合、Knowledge Baseを同期
+    if item.get('fileKey') and item['fileKey'].endswith('.pdf'):
+        try:
+            bedrock_agent.start_ingestion_job(
+                knowledgeBaseId=KNOWLEDGE_BASE_ID,
+                dataSourceId=DATA_SOURCE_ID
+            )
+            logger.info(f"Started Knowledge Base ingestion for: {item['fileKey']}")
+        except Exception as e:
+            logger.error(f"Failed to start ingestion: {str(e)}")
     
     return convert_decimals(item), 201
 

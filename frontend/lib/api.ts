@@ -70,3 +70,14 @@ export async function uploadToS3(url: string, file: File) {
   })
   if (!response.ok) throw new Error('ファイルのアップロードに失敗しました')
 }
+
+// RAG全文検索
+export async function searchDocuments(query: string, numberOfResults: number = 10) {
+  const response = await fetch(`${API_ENDPOINT}/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, numberOfResults })
+  })
+  if (!response.ok) throw new Error('検索に失敗しました')
+  return response.json()
+}

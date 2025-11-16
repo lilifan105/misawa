@@ -27,10 +27,10 @@ interface PageThumbnail {
   imageUrl: string
 }
 
-export function DocumentViewerPage({ documentId }: { documentId: string }) {
+export function DocumentViewerPage({ documentId, initialPage }: { documentId: string; initialPage?: number }) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<"document" | "attributes">("document")
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage, setCurrentPage] = useState(initialPage || 1)
   const [zoom, setZoom] = useState(100)
   const [zoomInput, setZoomInput] = useState("100")
   const [pageInput, setPageInput] = useState("1")
@@ -79,6 +79,13 @@ export function DocumentViewerPage({ documentId }: { documentId: string }) {
     }
     fetchDocument()
   }, [documentId])
+
+  useEffect(() => {
+    if (initialPage) {
+      setCurrentPage(initialPage)
+      setPageInput(String(initialPage))
+    }
+  }, [initialPage])
 
   const relatedDocuments: RelatedDocument[] = [
     { id: 1, title: "関連する技術情報ドキュメント", date: "25.04.25", type: "技術情報" },

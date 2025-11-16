@@ -32,3 +32,28 @@ output "amplify_app_url" {
   description = "AmplifyアプリケーションURL"
   value       = module.frontend.app_url
 }
+
+output "knowledge_base_id" {
+  description = "Bedrock Knowledge Base ID"
+  value       = module.bedrock.knowledge_base_id
+}
+
+output "data_source_id" {
+  description = "Bedrock Data Source ID"
+  value       = module.bedrock.data_source_id
+}
+
+output "collection_id" {
+  description = "OpenSearch Serverless Collection ID"
+  value       = module.bedrock.collection_id
+}
+
+output "collection_endpoint" {
+  description = "OpenSearch Serverless Collection Endpoint"
+  value       = module.bedrock.collection_endpoint
+}
+
+output "index_name" {
+  description = "OpenSearch Index Name"
+  value       = module.bedrock.index_name
+}

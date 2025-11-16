@@ -7,12 +7,21 @@ export function generateStaticParams() {
 
 export const dynamicParams = true
 
-export default async function ViewDocumentPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ViewDocumentPage({ 
+  params,
+  searchParams 
+}: { 
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ page?: string }>
+}) {
   const { id } = await params
+  const { page } = await searchParams
+  const initialPage = page ? parseInt(page, 10) : undefined
+  
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <SystemHeader breadcrumbs={[{ label: "トップページ", href: "/" }, { label: "文書閲覧画面" }]} />
-      <DocumentViewerPage documentId={id} />
+      <DocumentViewerPage documentId={id} initialPage={initialPage} />
     </div>
   )
 }

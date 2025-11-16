@@ -1,0 +1,56 @@
+@startuml RAG検索アーキテクチャ
+!define AWSPuml https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/v18.0/dist
+!include AWSPuml/AWSCommon.puml
+!include AWSPuml/Compute/Lambda.puml
+!include AWSPuml/Storage/SimpleStorageService.puml
+!include AWSPuml/MachineLearning/Bedrock.puml
+!include AWSPuml/NetworkingContentDelivery/APIGateway.puml
+!include AWSPuml/SecurityIdentityCompliance/IAMRole.puml
+
+skinparam linetype ortho
+
+actor "ユーザー" as user
+rectangle "フロントエンド" as frontend {
+  component "Next.js\n検索画面" as nextjs
+}
+
+rectangle "AWS" {
+  APIGateway(api, "API Gateway", "HTTP API")
+  Lambda(search, "Search Lambda", "Python 3.12")
+  Bedrock(kb, "Knowledge Base", "RAG検索")
+  SimpleStorageService(vectors, "S3 Vectors", "ベクトルDB")
+  SimpleStorageService(docs, "S3 Bucket", "文書ストレージ")
+  IAMRole(role, "Lambda Role", "実行権限")
+}
+
+user --> nextjs : 検索クエリ入力
+nextjs --> api : POST /search
+api --> search : 検索リクエスト
+search --> kb : Retrieve API
+kb --> vectors : ベクトル検索
+kb --> docs : 文書参照
+vectors --> kb : 検索結果
+docs --> kb : 文書チャンク
+kb --> search : 検索結果
+search --> api : レスポンス
+api --> nextjs : 検索結果
+nextjs --> user : 結果表示
+
+role ..> search : 権限付与
+role ..> kb : Bedrock権限
+role ..> vectors : S3権限
+role ..> docs : S3権限
+
+note right of kb
+  - 埋め込みモデル: Titan Embed v2
+  - ベクトル次元: 1024
+  - チャンキング: デフォルト
+end note
+
+note right of vectors
+  - コスト効率的なベクトルストレージ
+  - サブセカンドクエリレイテンシ
+  - 自動ベクトル管理
+end note
+
+@enduml

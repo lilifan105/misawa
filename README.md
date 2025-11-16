@@ -20,7 +20,7 @@
 ### データベース・ストレージ
 - **NoSQL**: Amazon DynamoDB
 - **ファイルストレージ**: Amazon S3
-- **検索**: Amazon OpenSearch Service（将来実装）
+- **RAG検索**: Amazon Bedrock Knowledge Base + S3 Vectors
 
 ### インフラ
 - **IaC**: Terraform（モジュール構成）
@@ -92,6 +92,7 @@ misawa/
 3. **文書登録確認画面** (`/confirm`) - 入力内容確認
 4. **完了画面** (`/complete`) - 登録完了
 5. **文書閲覧画面** (`/view/[id]`) - PDFビューア、属性表示
+6. **RAG検索画面** (`/search`) - AI全文検索、ページプレビュー
 
 ## API エンドポイント
 
@@ -102,8 +103,8 @@ misawa/
 - `PUT /documents/{id}` - 文書更新
 - `DELETE /documents/{id}` - 文書削除
 
-### 検索API（将来実装）
-- `POST /search` - 文書検索・RAG
+### 検索API
+- `POST /search` - RAG全文検索（Bedrock Knowledge Base）
 
 ### 外部API（GCP連携）
 - `GET /external/documents` - 文書一覧取得（APIキー認証）
@@ -121,6 +122,7 @@ misawa/
 - [x] API Gateway設定
 - [x] AWS Amplify設定
 - [x] フロントエンド・API統合
+- [x] RAG全文検索機能（Bedrock + S3 Vectors）
 
 ### 🚧 実装中
 - [ ] 認証機能統合（Cognito）
@@ -133,9 +135,9 @@ misawa/
    - [ ] ファイルアップロード・ダウンロード
 
 2. **中優先度**
-   - [ ] RAG検索機能（OpenSearch + Bedrock）
    - [ ] PDF処理（テキスト抽出）
    - [ ] 通知機能（SES）
+   - [ ] RAG検索拡張（リランキング、フィルタリング）
 
 3. **低優先度**
    - [ ] 閲覧履歴
@@ -153,6 +155,7 @@ misawa/
 - [画面設計書](docs/02_基本設計/画面設計書.md)
 - [バックエンドREADME](backend/README.md)
 - [インフラREADME](infrastructure/README.md)
+- [RAG検索機能実装ガイド](docs/04_実装/RAG検索機能/RAG検索機能実装ガイド.md)
 - [デプロイ手順](DEPLOYMENT.md)
 
 ## コスト見積もり（月額）
@@ -164,9 +167,9 @@ misawa/
 | DynamoDB | 10GB、100万R/W | $15 |
 | S3 | 100GB保存 | $2.5 |
 | Cognito | 1,000 MAU | $5 |
-| **合計** | | **$46** |
-
-※ OpenSearch、Bedrock追加時は別途コスト発生
+| S3 Vectors | 10GBベクトル | $0.23 |
+| Bedrock KB | 10万クエリ | $0.30 |
+| **合計** | | **$46.53** |
 
 ## トラブルシューティング
 

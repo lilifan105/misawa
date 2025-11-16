@@ -1,0 +1,66 @@
+@startuml データフロー図
+
+!define RECTANGLE class
+
+skinparam componentStyle rectangle
+
+package "データ準備フェーズ" {
+  [PDF文書] as pdf
+  [S3バケット\n(documents/)] as s3docs
+  [メタデータ\n(.metadata.json)] as metadata
+  
+  pdf --> s3docs : アップロード
+  metadata --> s3docs : アップロード
+}
+
+package "インデックス作成フェーズ" {
+  [Knowledge Base\nデータソース] as datasource
+  [チャンキング\n処理] as chunking
+  [埋め込みモデル\n(Titan Embed v2)] as embedding
+  [ベクトル生成] as vector
+  [S3 Vectors\nインデックス] as index
+  
+  s3docs --> datasource : 同期
+  datasource --> chunking : 文書分割
+  chunking --> embedding : テキスト変換
+  embedding --> vector : ベクトル化\n(1024次元)
+  vector --> index : 保存
+}
+
+package "検索フェーズ" {
+  [検索クエリ] as query
+  [クエリ埋め込み] as qembed
+  [ベクトル検索] as vsearch
+  [結果ランキング] as ranking
+  [検索結果] as result
+  
+  query --> qembed : ベクトル化
+  qembed --> vsearch : 類似度検索
+  index --> vsearch : ベクトル比較
+  vsearch --> ranking : スコアリング
+  s3docs --> ranking : チャンク取得
+  ranking --> result : 上位N件
+}
+
+note right of chunking
+  チャンキング設定:
+  - デフォルト戦略
+  - 固定サイズまたは
+    セマンティック分割
+end note
+
+note right of embedding
+  埋め込みモデル:
+  - amazon.titan-embed-text-v2:0
+  - 次元数: 1024
+  - 多言語対応
+end note
+
+note right of vsearch
+  検索アルゴリズム:
+  - コサイン類似度
+  - Top-K検索
+  - メタデータフィルタ対応
+end note
+
+@enduml

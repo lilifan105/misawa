@@ -1,9 +1,13 @@
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.9"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.20.0"
+    }
+    awscc = {
+      source  = "hashicorp/awscc"
+      version = "~> 1.63.0"
     }
   }
 }
@@ -29,6 +33,16 @@ module "storage" {
   account_id   = data.aws_caller_identity.current.account_id
 }
 
+module "bedrock" {
+  source = "./modules/bedrock"
+
+  project_name  = var.project_name
+  environment   = var.environment
+  aws_region    = var.aws_region
+  account_id    = data.aws_caller_identity.current.account_id
+  s3_bucket_arn = module.storage.bucket_arn
+}
+
 module "auth" {
   source = "./modules/auth"
 
@@ -48,6 +62,8 @@ module "compute" {
   s3_bucket_id        = module.storage.bucket_id
   s3_bucket_arn       = module.storage.bucket_arn
   external_api_key    = var.external_api_key
+  knowledge_base_id   = module.bedrock.knowledge_base_id
+  data_source_id      = module.bedrock.data_source_id
 }
 
 module "api" {
