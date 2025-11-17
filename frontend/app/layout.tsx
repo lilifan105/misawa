@@ -8,8 +8,8 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "文書管理システム",
-  description: "Created with v0",
-  generator: "v0.app",
+  description: "",
+  generator: "",
   icons: {
     icon: [
       {

@@ -1,10 +1,7 @@
 import { SystemHeader } from "@/components/system-header"
 import { DocumentViewerPage } from "@/components/document-viewer-page"
 
-export function generateStaticParams() {
-  return []
-}
-
+export const dynamic = 'force-dynamic'
 export const dynamicParams = true
 
 export default async function ViewDocumentPage({ 

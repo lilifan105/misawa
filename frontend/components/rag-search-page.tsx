@@ -50,7 +50,10 @@ export function RagSearchPage() {
   }
 
   const handleDocumentClick = (result: SearchResult) => {
-    const page = result.metadata?.pageNumber || result.metadata?.page
+    const page = result.metadata?.['x-amz-bedrock-kb-document-page-number'] || result.metadata?.pageNumber || result.metadata?.page
+    
+    console.log('遷移先documentId:', result.documentId, 'page:', page)
+    
     if (page) {
       router.push(`/view/${result.documentId}?page=${page}`)
     } else {
