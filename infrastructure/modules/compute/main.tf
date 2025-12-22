@@ -71,7 +71,10 @@ resource "aws_lambda_function" "documents" {
   timeout          = 30
   memory_size      = 512
   source_code_hash = filebase64sha256("${path.root}/../backend/functions/documents.zip")
-  layers           = [aws_lambda_layer_version.powertools.arn]
+  layers           = [
+    aws_lambda_layer_version.powertools.arn,
+    aws_lambda_layer_version.shared.arn
+  ]
 
   environment {
     variables = {
@@ -79,6 +82,7 @@ resource "aws_lambda_function" "documents" {
       DOCUMENTS_BUCKET        = var.s3_bucket_id
       KNOWLEDGE_BASE_ID       = var.knowledge_base_id
       DATA_SOURCE_ID          = var.data_source_id
+      MULTITENANT_MODE        = var.multitenant_mode
       POWERTOOLS_SERVICE_NAME = "documents"
       LOG_LEVEL               = "INFO"
     }
@@ -99,12 +103,16 @@ resource "aws_lambda_function" "search" {
   timeout          = 30
   memory_size      = 512
   source_code_hash = filebase64sha256("${path.root}/../backend/functions/search.zip")
-  layers           = [aws_lambda_layer_version.powertools.arn]
+  layers           = [
+    aws_lambda_layer_version.powertools.arn,
+    aws_lambda_layer_version.shared.arn
+  ]
 
   environment {
     variables = {
       KNOWLEDGE_BASE_ID       = var.knowledge_base_id
       DOCUMENTS_TABLE         = var.dynamodb_table_name
+      MULTITENANT_MODE        = var.multitenant_mode
       POWERTOOLS_SERVICE_NAME = "search"
       LOG_LEVEL               = "INFO"
     }

@@ -1,10 +1,15 @@
 import os
+import sys
 import json
 import boto3
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from typing import Dict, List, Any
+
+# 共有モジュールのインポート（Lambda Layerから）
+sys.path.insert(0, '/opt/python')
+from shared.tenant_context import TenantContextManager, ContextNotFoundError
 
 logger = Logger()
 app = APIGatewayHttpResolver(strip_prefixes=["/dev"])
@@ -16,7 +21,63 @@ dynamodb = boto3.resource('dynamodb')
 # 環境変数からKnowledge Base IDを取得
 KNOWLEDGE_BASE_ID = os.environ.get('KNOWLEDGE_BASE_ID', '')
 DOCUMENTS_TABLE = os.environ.get('DOCUMENTS_TABLE', 'documents')
+MULTITENANT_MODE = os.environ.get('MULTITENANT_MODE', 'false').lower() == 'true'
 table = dynamodb.Table(DOCUMENTS_TABLE)
+
+def get_tenant_context_from_authorizer():
+    """
+    Lambda Authorizerから渡されたテナントコンテキストを取得します。
+    
+    Returns:
+        テナントコンテキスト情報の辞書、またはNone（スタンドアロンモード時）
+    """
+    if not MULTITENANT_MODE:
+        return None
+    
+    try:
+        # API Gatewayのauthorizerコンテキストから取得
+        request_context = app.current_event.request_context
+        authorizer = request_context.get('authorizer', {})
+        
+        # Lambda Authorizerから渡されたコンテキスト
+        tenant_name = authorizer.get('tenant_name')
+        tenant_id = authorizer.get('tenant_id')
+        username = authorizer.get('username')
+        role = authorizer.get('role')
+        user_id = authorizer.get('user_id')
+        
+        if tenant_name and tenant_id:
+            # テナントコンテキストを作成
+            context_data = {
+                'custom:tenant_name': tenant_name,
+                'name': username,
+                'custom:role': role,
+                'sub': user_id
+            }
+            TenantContextManager.create_context(context_data, tenant_id)
+            
+            logger.info(
+                "テナントコンテキストを設定しました",
+                extra={
+                    'tenant_name': tenant_name,
+                    'tenant_id': tenant_id,
+                    'username': username
+                }
+            )
+            return {
+                'tenant_name': tenant_name,
+                'tenant_id': tenant_id,
+                'username': username,
+                'role': role
+            }
+        else:
+            logger.warning("Authorizerコンテキストにテナント情報がありません")
+            return None
+            
+    except Exception as e:
+        logger.error(f"テナントコンテキスト取得エラー: {str(e)}")
+        return None
+
 
 @app.post("/search")
 def search():
@@ -39,6 +100,9 @@ def search():
             - s3Uri: S3ファイルパス
             - metadata: メタデータ（ページ番号など）
     """
+    # テナントコンテキストの取得
+    tenant_context = get_tenant_context_from_authorizer()
+    
     try:
         # リクエストボディを取得
         body = app.current_event.json_body
@@ -60,7 +124,13 @@ def search():
                 'body': {'error': 'Knowledge Baseが設定されていません'}
             }
         
-        logger.info(f"検索クエリ: {query}, 結果数: {number_of_results}")
+        log_extra = {'query': query, 'number_of_results': number_of_results}
+        if tenant_context:
+            log_extra.update({
+                'tenant_name': tenant_context.get('tenant_name'),
+                'tenant_id': tenant_context.get('tenant_id')
+            })
+        logger.info(f"検索クエリ: {query}, 結果数: {number_of_results}", extra=log_extra)
         
         # Bedrock Knowledge Base Retrieve APIを呼び出し
         response = bedrock_agent_runtime.retrieve(
@@ -107,9 +177,9 @@ def search():
                         )
                         if response.get('Items'):
                             document_id = response['Items'][0]['id']
-                            logger.info(f"Found document ID: {document_id} for fileKey: {file_key}")
+                            logger.info(f"文書IDを検出: {document_id} (fileKey: {file_key})")
                     except Exception as scan_error:
-                        logger.error(f"DynamoDB scan error: {str(scan_error)}")
+                        logger.error(f"DynamoDBスキャンエラー: {str(scan_error)}")
                         # フォールバック: ファイル名からIDを抽出
                         filename = parts[-1]
                         document_id = filename.rsplit('.', 1)[0]
@@ -125,7 +195,13 @@ def search():
                     'metadata': metadata
                 })
         
-        logger.info(f"検索結果: {len(results)}件")
+        log_extra = {'result_count': len(results)}
+        if tenant_context:
+            log_extra.update({
+                'tenant_name': tenant_context.get('tenant_name'),
+                'tenant_id': tenant_context.get('tenant_id')
+            })
+        logger.info(f"検索結果: {len(results)}件", extra=log_extra)
         
         return {
             'statusCode': 200,

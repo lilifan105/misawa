@@ -1,10 +1,15 @@
 import os
+import sys
 from decimal import Decimal
 from datetime import datetime, timezone, timedelta
 import boto3
 from aws_lambda_powertools import Logger
 from aws_lambda_powertools.event_handler import APIGatewayHttpResolver
 from aws_lambda_powertools.utilities.typing import LambdaContext
+
+# 共有モジュールのインポート（Lambda Layerから）
+sys.path.insert(0, '/opt/python')
+from shared.tenant_context import TenantContextManager, ContextNotFoundError
 
 logger = Logger()
 app = APIGatewayHttpResolver(strip_prefixes=["/dev"])
@@ -16,6 +21,7 @@ bedrock_agent = boto3.client('bedrock-agent')
 BUCKET_NAME = os.environ.get('DOCUMENTS_BUCKET', '')
 KNOWLEDGE_BASE_ID = os.environ.get('KNOWLEDGE_BASE_ID', '')
 DATA_SOURCE_ID = os.environ.get('DATA_SOURCE_ID', '')
+MULTITENANT_MODE = os.environ.get('MULTITENANT_MODE', 'false').lower() == 'true'
 
 def convert_decimals(obj):
     if isinstance(obj, list):
@@ -25,6 +31,61 @@ def convert_decimals(obj):
     elif isinstance(obj, Decimal):
         return int(obj) if obj % 1 == 0 else float(obj)
     return obj
+
+
+def get_tenant_context_from_authorizer():
+    """
+    Lambda Authorizerから渡されたテナントコンテキストを取得します。
+    
+    Returns:
+        テナントコンテキスト情報の辞書、またはNone（スタンドアロンモード時）
+    """
+    if not MULTITENANT_MODE:
+        return None
+    
+    try:
+        # API Gatewayのauthorizerコンテキストから取得
+        request_context = app.current_event.request_context
+        authorizer = request_context.get('authorizer', {})
+        
+        # Lambda Authorizerから渡されたコンテキスト
+        tenant_name = authorizer.get('tenant_name')
+        tenant_id = authorizer.get('tenant_id')
+        username = authorizer.get('username')
+        role = authorizer.get('role')
+        user_id = authorizer.get('user_id')
+        
+        if tenant_name and tenant_id:
+            # テナントコンテキストを作成
+            context_data = {
+                'custom:tenant_name': tenant_name,
+                'name': username,
+                'custom:role': role,
+                'sub': user_id
+            }
+            TenantContextManager.create_context(context_data, tenant_id)
+            
+            logger.info(
+                "テナントコンテキストを設定しました",
+                extra={
+                    'tenant_name': tenant_name,
+                    'tenant_id': tenant_id,
+                    'username': username
+                }
+            )
+            return {
+                'tenant_name': tenant_name,
+                'tenant_id': tenant_id,
+                'username': username,
+                'role': role
+            }
+        else:
+            logger.warning("Authorizerコンテキストにテナント情報がありません")
+            return None
+            
+    except Exception as e:
+        logger.error(f"テナントコンテキスト取得エラー: {str(e)}")
+        return None
 
 @app.get("/documents")
 def list_documents():
@@ -40,11 +101,19 @@ def list_documents():
         documents: 文書リスト
         count: 文書数
     """
+    # テナントコンテキストの取得
+    tenant_context = get_tenant_context_from_authorizer()
+    
     params = app.current_event.query_string_parameters or {}
     
     scan_kwargs = {}
     filter_expressions = []
     expr_attr_values = {}
+    
+    # 将来の拡張: テナントIDでフィルタリング
+    # if tenant_context and tenant_context.get('tenant_id'):
+    #     filter_expressions.append('tenant_id = :tenantId')
+    #     expr_attr_values[':tenantId'] = tenant_context['tenant_id']
     
     # 大カテゴリフィルタ
     if params.get('topCategory'):
@@ -73,7 +142,14 @@ def list_documents():
     result = table.scan(**scan_kwargs)
     items = [convert_decimals(item) for item in result.get('Items', [])]
     
-    logger.info(f"Retrieved {len(items)} documents")
+    log_extra = {'document_count': len(items)}
+    if tenant_context:
+        log_extra.update({
+            'tenant_name': tenant_context.get('tenant_name'),
+            'tenant_id': tenant_context.get('tenant_id')
+        })
+    
+    logger.info(f"文書一覧を取得しました: {len(items)}件", extra=log_extra)
     return {'documents': items, 'count': len(items)}
 
 @app.get("/documents/<id>")
@@ -90,10 +166,19 @@ def get_document(id: str):
     エラー:
         404: 文書が見つからない場合
     """
+    # テナントコンテキストの取得
+    tenant_context = get_tenant_context_from_authorizer()
+    
     result = table.get_item(Key={'id': id})
     
     if 'Item' not in result:
-        logger.warning(f"Document not found: {id}")
+        log_extra = {'document_id': id}
+        if tenant_context:
+            log_extra.update({
+                'tenant_name': tenant_context.get('tenant_name'),
+                'tenant_id': tenant_context.get('tenant_id')
+            })
+        logger.warning(f"文書が見つかりません: {id}", extra=log_extra)
         return {'error': 'Document not found'}, 404
     
     item = convert_decimals(result['Item'])
@@ -111,9 +196,15 @@ def get_document(id: str):
             )
             item['downloadUrl'] = download_url
         except Exception as e:
-            logger.error(f"Failed to generate download URL: {str(e)}")
+            logger.error(f"ダウンロードURL生成失敗: {str(e)}")
     
-    logger.info(f"Retrieved document: {id}")
+    log_extra = {'document_id': id}
+    if tenant_context:
+        log_extra.update({
+            'tenant_name': tenant_context.get('tenant_name'),
+            'tenant_id': tenant_context.get('tenant_id')
+        })
+    logger.info(f"文書詳細を取得しました: {id}", extra=log_extra)
     return item
 
 @app.post("/documents/upload-url")
@@ -129,6 +220,9 @@ def get_upload_url():
         uploadUrl: 署名付きURL
         fileKey: S3キー
     """
+    # テナントコンテキストの取得
+    tenant_context = get_tenant_context_from_authorizer()
+    
     body = app.current_event.json_body
     file_name = body.get('fileName')
     file_type = body.get('fileType', 'application/pdf')
@@ -149,7 +243,13 @@ def get_upload_url():
         ExpiresIn=300
     )
     
-    logger.info(f"Generated upload URL for: {file_key}")
+    log_extra = {'file_key': file_key}
+    if tenant_context:
+        log_extra.update({
+            'tenant_name': tenant_context.get('tenant_name'),
+            'tenant_id': tenant_context.get('tenant_id')
+        })
+    logger.info(f"アップロードURLを生成しました: {file_key}", extra=log_extra)
     return {'uploadUrl': upload_url, 'fileKey': file_key}
 
 @app.post("/documents")
@@ -171,6 +271,9 @@ def create_document():
     戻り値:
         登録された文書情報（ステータス: 201）
     """
+    # テナントコンテキストの取得
+    tenant_context = get_tenant_context_from_authorizer()
+    
     body = app.current_event.json_body
     jst = timezone(timedelta(hours=9))
     doc_id = str(int(datetime.now(jst).timestamp() * 1000))
@@ -181,6 +284,10 @@ def create_document():
         'updatedAt': datetime.now(jst).isoformat(),
         'status': 'draft'
     }
+    
+    # 将来の拡張: テナントIDを保存
+    # if tenant_context and tenant_context.get('tenant_id'):
+    #     item['tenant_id'] = tenant_context['tenant_id']
     
     # None値と空文字列を除外して追加
     for key in ['type', 'title', 'department', 'number', 'division', 'date', 'endDate',
@@ -195,7 +302,14 @@ def create_document():
         item['categories'] = body['categories']
     
     table.put_item(Item=item)
-    logger.info(f"Created document: {doc_id}")
+    
+    log_extra = {'document_id': doc_id}
+    if tenant_context:
+        log_extra.update({
+            'tenant_name': tenant_context.get('tenant_name'),
+            'tenant_id': tenant_context.get('tenant_id')
+        })
+    logger.info(f"文書を登録しました: {doc_id}", extra=log_extra)
     
     # PDFファイルがアップロードされた場合、Knowledge Baseを同期
     if item.get('fileKey') and item['fileKey'].endswith('.pdf'):
@@ -204,9 +318,9 @@ def create_document():
                 knowledgeBaseId=KNOWLEDGE_BASE_ID,
                 dataSourceId=DATA_SOURCE_ID
             )
-            logger.info(f"Started Knowledge Base ingestion for: {item['fileKey']}")
+            logger.info(f"Knowledge Base同期を開始しました: {item['fileKey']}")
         except Exception as e:
-            logger.error(f"Failed to start ingestion: {str(e)}")
+            logger.error(f"Knowledge Base同期失敗: {str(e)}")
     
     return convert_decimals(item), 201
 
@@ -229,6 +343,9 @@ def update_document(id: str):
     戻り値:
         更新された文書情報
     """
+    # テナントコンテキストの取得
+    tenant_context = get_tenant_context_from_authorizer()
+    
     body = app.current_event.json_body
     jst = timezone(timedelta(hours=9))
     
@@ -247,7 +364,13 @@ def update_document(id: str):
         ReturnValues='ALL_NEW'
     )
     
-    logger.info(f"Updated document: {id}")
+    log_extra = {'document_id': id}
+    if tenant_context:
+        log_extra.update({
+            'tenant_name': tenant_context.get('tenant_name'),
+            'tenant_id': tenant_context.get('tenant_id')
+        })
+    logger.info(f"文書を更新しました: {id}", extra=log_extra)
     return convert_decimals(result['Attributes'])
 
 @app.delete("/documents/<id>")
@@ -267,20 +390,35 @@ def delete_document(id: str):
     エラー:
         404: 文書が見つからない場合
     """
+    # テナントコンテキストの取得
+    tenant_context = get_tenant_context_from_authorizer()
+    
     try:
         # 削除前に文書の存在確認
         result = table.get_item(Key={'id': id})
         if 'Item' not in result:
-            logger.warning(f"Document not found for deletion: {id}")
+            log_extra = {'document_id': id}
+            if tenant_context:
+                log_extra.update({
+                    'tenant_name': tenant_context.get('tenant_name'),
+                    'tenant_id': tenant_context.get('tenant_id')
+                })
+            logger.warning(f"削除対象の文書が見つかりません: {id}", extra=log_extra)
             return {'error': 'Document not found'}, 404
         
         # 物理削除を実行
         table.delete_item(Key={'id': id})
         
-        logger.info(f"Deleted document: {id}")
+        log_extra = {'document_id': id}
+        if tenant_context:
+            log_extra.update({
+                'tenant_name': tenant_context.get('tenant_name'),
+                'tenant_id': tenant_context.get('tenant_id')
+            })
+        logger.info(f"文書を削除しました: {id}", extra=log_extra)
         return {'message': 'Document deleted successfully'}
     except Exception as e:
-        logger.error(f"Error deleting document {id}: {str(e)}")
+        logger.error(f"文書削除エラー {id}: {str(e)}")
         return {'error': 'Failed to delete document'}, 500
 
 @logger.inject_lambda_context

@@ -1,0 +1,7 @@
+# Lambda Authorizer関数の依存関係
+# 注: 共有モジュールはLambda Layerから提供されます
+
+# 共有モジュールの依存関係（参考用）
+# python-jose[cryptography]==3.3.0
+# requests==2.31.0
+# psycopg2-binary==2.9.9
