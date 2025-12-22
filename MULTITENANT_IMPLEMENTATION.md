@@ -56,6 +56,29 @@
 
 **注意:** E2Eテストは実際のデプロイ後に実行する必要があります。
 
+## Terraform設定完了
+
+### ✅ 完了した設定
+- `infrastructure/main.tf`: マルチテナント設定をcomputeモジュールとapiモジュールに追加
+- `infrastructure/variables.tf`: マルチテナント関連の変数を追加
+- `infrastructure/terraform.tfvars`: マルチテナント設定とVPC設定を追加
+- `infrastructure/modules/api/outputs.tf`: `api_execution_arn`を追加
+- `infrastructure/modules/api/variables.tf`: マルチテナント関連の変数を追加
+- `infrastructure/modules/api/main.tf`: 既存のルートをマルチテナントモードでない場合のみ作成するように修正
+- `infrastructure/modules/api/authorizer.tf`: 変数の型をstringに修正、Lambda呼び出し権限を追加
+- `infrastructure/modules/compute/outputs.tf`: authorizer関連のoutputsを追加
+- `infrastructure/modules/compute/authorizer.tf`: すべてのリソースにcountを追加
+- `infrastructure/modules/compute/layers.tf`: shared layerにcountを追加
+- `infrastructure/modules/compute/main.tf`: documents/search関数のlayersを条件付きで設定
+
+### Terraform Plan結果
+- 18個のリソースを作成
+- 5個のリソースを更新
+- 8個のリソースを削除（既存のルートを認証付きルートに置き換え）
+
+### デプロイ準備完了
+すべてのTerraform設定が完了し、`terraform plan`が成功しました。次のステップでデプロイを実行できます。
+
 ## 環境変数設定
 
 ### バックエンド（Lambda関数）

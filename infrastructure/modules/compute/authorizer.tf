@@ -1,5 +1,7 @@
 # Lambda Authorizer用のIAMロール
 resource "aws_iam_role" "authorizer_exec" {
+  count = var.multitenant_mode == "true" ? 1 : 0
+
   name = "${var.project_name}-authorizer-exec-${var.environment}"
 
   assume_role_policy = jsonencode({
@@ -21,21 +23,27 @@ resource "aws_iam_role" "authorizer_exec" {
 
 # Lambda Authorizer用の基本実行ポリシー
 resource "aws_iam_role_policy_attachment" "authorizer_basic" {
-  role       = aws_iam_role.authorizer_exec.name
+  count = var.multitenant_mode == "true" ? 1 : 0
+
+  role       = aws_iam_role.authorizer_exec[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 # Lambda Authorizer用のVPC実行ポリシー（RDSアクセス用）
 resource "aws_iam_role_policy_attachment" "authorizer_vpc" {
-  role       = aws_iam_role.authorizer_exec.name
+  count = var.multitenant_mode == "true" ? 1 : 0
+
+  role       = aws_iam_role.authorizer_exec[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
 }
 
 # Lambda Authorizer関数
 resource "aws_lambda_function" "authorizer" {
+  count = var.multitenant_mode == "true" ? 1 : 0
+
   filename         = "${path.root}/../backend/functions/authorizer.zip"
   function_name    = "${var.project_name}-authorizer-${var.environment}"
-  role             = aws_iam_role.authorizer_exec.arn
+  role             = aws_iam_role.authorizer_exec[0].arn
   handler          = "lambda_function.lambda_handler"
   runtime          = "python3.12"
   timeout          = 10
@@ -43,12 +51,12 @@ resource "aws_lambda_function" "authorizer" {
   source_code_hash = filebase64sha256("${path.root}/../backend/functions/authorizer.zip")
   
   # 共有モジュールのLambda Layerをアタッチ
-  layers = [aws_lambda_layer_version.shared.arn]
+  layers = [aws_lambda_layer_version.shared[0].arn]
 
   # VPC設定（RDSアクセス用）
   vpc_config {
     subnet_ids         = var.private_subnet_ids
-    security_group_ids = [aws_security_group.lambda_authorizer.id]
+    security_group_ids = [aws_security_group.lambda_authorizer[0].id]
   }
 
   environment {
@@ -75,6 +83,8 @@ resource "aws_lambda_function" "authorizer" {
 
 # Lambda Authorizer用のセキュリティグループ
 resource "aws_security_group" "lambda_authorizer" {
+  count = var.multitenant_mode == "true" ? 1 : 0
+
   name        = "${var.project_name}-lambda-authorizer-${var.environment}"
   description = "Security group for Lambda Authorizer"
   vpc_id      = var.vpc_id
@@ -105,9 +115,11 @@ resource "aws_security_group" "lambda_authorizer" {
 
 # API GatewayがLambda Authorizerを呼び出すための権限
 resource "aws_lambda_permission" "authorizer_api_gateway" {
+  count = var.multitenant_mode == "true" ? 1 : 0
+
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.authorizer.function_name
+  function_name = aws_lambda_function.authorizer[0].function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${var.api_gateway_execution_arn}/*/*"
 }

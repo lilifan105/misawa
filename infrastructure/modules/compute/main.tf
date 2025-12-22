@@ -71,9 +71,11 @@ resource "aws_lambda_function" "documents" {
   timeout          = 30
   memory_size      = 512
   source_code_hash = filebase64sha256("${path.root}/../backend/functions/documents.zip")
-  layers           = [
+  layers           = var.multitenant_mode == "true" ? [
     aws_lambda_layer_version.powertools.arn,
-    aws_lambda_layer_version.shared.arn
+    aws_lambda_layer_version.shared[0].arn
+  ] : [
+    aws_lambda_layer_version.powertools.arn
   ]
 
   environment {
@@ -103,9 +105,11 @@ resource "aws_lambda_function" "search" {
   timeout          = 30
   memory_size      = 512
   source_code_hash = filebase64sha256("${path.root}/../backend/functions/search.zip")
-  layers           = [
+  layers           = var.multitenant_mode == "true" ? [
     aws_lambda_layer_version.powertools.arn,
-    aws_lambda_layer_version.shared.arn
+    aws_lambda_layer_version.shared[0].arn
+  ] : [
+    aws_lambda_layer_version.powertools.arn
   ]
 
   environment {

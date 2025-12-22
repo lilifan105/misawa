@@ -58,3 +58,77 @@ variable "github_access_token" {
   sensitive   = true
   default     = ""
 }
+
+# マルチテナント認証設定
+variable "multitenant_mode" {
+  description = "マルチテナントモードを有効にするか（true/false）"
+  type        = string
+  default     = "false"
+}
+
+variable "cognito_region" {
+  description = "Cognito User PoolのAWSリージョン"
+  type        = string
+  default     = "ap-northeast-1"
+}
+
+variable "cognito_user_pool_id" {
+  description = "Cognito User Pool ID"
+  type        = string
+  default     = ""
+}
+
+variable "multitenant_rds_host" {
+  description = "マルチテナントRDSのホスト名"
+  type        = string
+  default     = ""
+}
+
+variable "multitenant_rds_port" {
+  description = "マルチテナントRDSのポート番号"
+  type        = string
+  default     = "5432"
+}
+
+variable "multitenant_rds_database" {
+  description = "マルチテナントRDSのデータベース名"
+  type        = string
+  default     = ""
+}
+
+variable "multitenant_rds_user" {
+  description = "マルチテナントRDSのユーザー名"
+  type        = string
+  default     = ""
+}
+
+variable "multitenant_rds_password" {
+  description = "マルチテナントRDSのパスワード"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "document_service_id" {
+  description = "文書管理サービスのUUID"
+  type        = string
+  default     = ""
+}
+
+variable "vpc_id" {
+  description = "VPC ID（マルチテナントモード時に必要）"
+  type        = string
+  default     = ""
+}
+
+variable "private_subnet_ids" {
+  description = "プライベートサブネットIDのリスト（マルチテナントモード時に必要）"
+  type        = list(string)
+  default     = []
+}
+
+variable "rds_cidr_blocks" {
+  description = "RDSのCIDRブロックのリスト（マルチテナントモード時に必要）"
+  type        = list(string)
+  default     = []
+}

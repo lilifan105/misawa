@@ -38,42 +38,56 @@ resource "aws_apigatewayv2_integration" "external_api" {
 }
 
 resource "aws_apigatewayv2_route" "documents_list" {
+  count = var.multitenant_mode == "true" ? 0 : 1
+
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "GET /documents"
   target    = "integrations/${aws_apigatewayv2_integration.documents.id}"
 }
 
 resource "aws_apigatewayv2_route" "documents_get" {
+  count = var.multitenant_mode == "true" ? 0 : 1
+
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "GET /documents/{id}"
   target    = "integrations/${aws_apigatewayv2_integration.documents.id}"
 }
 
 resource "aws_apigatewayv2_route" "documents_upload_url" {
+  count = var.multitenant_mode == "true" ? 0 : 1
+
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "POST /documents/upload-url"
   target    = "integrations/${aws_apigatewayv2_integration.documents.id}"
 }
 
 resource "aws_apigatewayv2_route" "documents_create" {
+  count = var.multitenant_mode == "true" ? 0 : 1
+
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "POST /documents"
   target    = "integrations/${aws_apigatewayv2_integration.documents.id}"
 }
 
 resource "aws_apigatewayv2_route" "documents_update" {
+  count = var.multitenant_mode == "true" ? 0 : 1
+
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "PUT /documents/{id}"
   target    = "integrations/${aws_apigatewayv2_integration.documents.id}"
 }
 
 resource "aws_apigatewayv2_route" "documents_delete" {
+  count = var.multitenant_mode == "true" ? 0 : 1
+
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "DELETE /documents/{id}"
   target    = "integrations/${aws_apigatewayv2_integration.documents.id}"
 }
 
 resource "aws_apigatewayv2_route" "search" {
+  count = var.multitenant_mode == "true" ? 0 : 1
+
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "POST /search"
   target    = "integrations/${aws_apigatewayv2_integration.search.id}"

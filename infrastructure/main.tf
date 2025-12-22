@@ -64,6 +64,21 @@ module "compute" {
   external_api_key    = var.external_api_key
   knowledge_base_id   = module.bedrock.knowledge_base_id
   data_source_id      = module.bedrock.data_source_id
+  
+  # マルチテナント認証設定
+  multitenant_mode         = var.multitenant_mode
+  cognito_region           = var.cognito_region
+  cognito_user_pool_id     = var.cognito_user_pool_id
+  multitenant_rds_host     = var.multitenant_rds_host
+  multitenant_rds_port     = var.multitenant_rds_port
+  multitenant_rds_database = var.multitenant_rds_database
+  multitenant_rds_user     = var.multitenant_rds_user
+  multitenant_rds_password = var.multitenant_rds_password
+  document_service_id      = var.document_service_id
+  vpc_id                   = var.vpc_id
+  private_subnet_ids       = var.private_subnet_ids
+  rds_cidr_blocks          = var.rds_cidr_blocks
+  api_gateway_execution_arn = module.api.api_execution_arn
 }
 
 module "api" {
@@ -78,6 +93,11 @@ module "api" {
   search_invoke_arn          = module.compute.search_invoke_arn
   external_api_function_name = module.compute.external_api_function_name
   external_api_invoke_arn    = module.compute.external_api_invoke_arn
+  
+  # マルチテナント認証設定
+  multitenant_mode         = var.multitenant_mode
+  authorizer_function_arn  = module.compute.authorizer_function_arn
+  authorizer_invoke_arn    = module.compute.authorizer_invoke_arn
 }
 
 module "frontend" {

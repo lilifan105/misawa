@@ -36,13 +36,19 @@ variable "external_api_invoke_arn" {
 
 # マルチテナント認証関連の変数
 variable "multitenant_mode" {
-  type        = bool
-  description = "Enable multitenant mode"
-  default     = false
+  type        = string
+  description = "マルチテナントモードを有効にするか（true/false）"
+  default     = "false"
+}
+
+variable "authorizer_function_arn" {
+  type        = string
+  description = "Lambda Authorizer関数ARN"
+  default     = ""
 }
 
 variable "authorizer_invoke_arn" {
   type        = string
-  description = "Lambda Authorizer invoke ARN"
+  description = "Lambda Authorizer呼び出しARN"
   default     = ""
 }

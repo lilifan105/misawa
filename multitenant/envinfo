@@ -1,0 +1,13 @@
+# Cognito設定
+COGNITO_REGION=ap-northeast-1
+COGNITO_USER_POOL_ID=ap-northeast-1_xF0rdWASB
+
+# RDS接続設定
+MULTITENANT_RDS_HOST=multitenant-saas-platform-poc-dev-db.csebzakbjiw1.ap-northeast-1.rds.amazonaws.com
+MULTITENANT_RDS_PORT=5432
+MULTITENANT_RDS_DATABASE=multitenant_saas_poc_db_dev
+MULTITENANT_RDS_USER=dbadmin
+MULTITENANT_RDS_PASSWORD=28qFxRPFxNo2
+
+# サービス設定
+DOCUMENT_SERVICE_ID=f5f6e5c9-9a3e-48f4-a467-97ede2a8b281

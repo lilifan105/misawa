@@ -10,6 +10,8 @@ resource "aws_lambda_layer_version" "powertools" {
 
 # Lambda Layer for Shared Modules（マルチテナント認証用）
 resource "aws_lambda_layer_version" "shared" {
+  count = var.multitenant_mode == "true" ? 1 : 0
+
   filename            = "${path.root}/../backend/shared/shared-layer.zip"
   layer_name          = "${var.project_name}-shared-${var.environment}"
   compatible_runtimes = ["python3.12"]
