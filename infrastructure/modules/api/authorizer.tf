@@ -11,6 +11,9 @@ resource "aws_apigatewayv2_authorizer" "lambda" {
   # Lambda Authorizerのレスポンスをキャッシュ（5分）
   authorizer_result_ttl_in_seconds = 300
   
+  # ペイロードフォーマットバージョン（REQUEST authorizerに必要）
+  authorizer_payload_format_version = "2.0"
+  
   # シンプルレスポンス形式を無効化（IAMポリシー形式を使用）
   enable_simple_responses = false
 }
@@ -95,13 +98,13 @@ resource "aws_apigatewayv2_route" "search_with_auth" {
 
 # external_api（外部APIは認証不要のため、Authorizerを適用しない）
 
-# Lambda Authorizerの呼び出し権限
-resource "aws_lambda_permission" "authorizer" {
-  count = var.multitenant_mode == "true" ? 1 : 0
-
-  statement_id  = "AllowAPIGatewayInvoke"
-  action        = "lambda:InvokeFunction"
-  function_name = var.authorizer_function_arn
-  principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*"
-}
+# Lambda Authorizerの呼び出し権限はcompute側で管理
+# resource "aws_lambda_permission" "authorizer" {
+#   count = var.multitenant_mode == "true" ? 1 : 0
+#
+#   statement_id  = "AllowAPIGatewayInvoke"
+#   action        = "lambda:InvokeFunction"
+#   function_name = var.authorizer_function_arn
+#   principal     = "apigateway.amazonaws.com"
+#   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*"
+# }

@@ -33,15 +33,16 @@ module "storage" {
   account_id   = data.aws_caller_identity.current.account_id
 }
 
-module "bedrock" {
-  source = "./modules/bedrock"
-
-  project_name  = var.project_name
-  environment   = var.environment
-  aws_region    = var.aws_region
-  account_id    = data.aws_caller_identity.current.account_id
-  s3_bucket_arn = module.storage.bucket_arn
-}
+# Bedrock一時無効化
+# module "bedrock" {
+#   source = "./modules/bedrock"
+#
+#   project_name  = var.project_name
+#   environment   = var.environment
+#   aws_region    = var.aws_region
+#   account_id    = data.aws_caller_identity.current.account_id
+#   s3_bucket_arn = module.storage.bucket_arn
+# }
 
 module "auth" {
   source = "./modules/auth"
@@ -62,8 +63,8 @@ module "compute" {
   s3_bucket_id        = module.storage.bucket_id
   s3_bucket_arn       = module.storage.bucket_arn
   external_api_key    = var.external_api_key
-  knowledge_base_id   = module.bedrock.knowledge_base_id
-  data_source_id      = module.bedrock.data_source_id
+  knowledge_base_id   = ""  # Bedrock一時無効化
+  data_source_id      = ""  # Bedrock一時無効化
   
   # マルチテナント認証設定
   multitenant_mode         = var.multitenant_mode
