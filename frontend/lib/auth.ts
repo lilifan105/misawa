@@ -92,7 +92,7 @@ function parseJwtPayload(token: string): TokenClaims | null {
  */
 class AuthManagerImpl implements AuthManager {
   /**
-   * トークンをsessionStorageに保存
+   * トークンをsessionStorageとCookieに保存
    */
   setToken(token: string): void {
     if (typeof window === 'undefined') {
@@ -100,7 +100,12 @@ class AuthManagerImpl implements AuthManager {
     }
     
     try {
+      // sessionStorageに保存
       sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+      
+      // Cookieにも保存（ミドルウェアで使用）
+      document.cookie = `${TOKEN_STORAGE_KEY}=${token}; path=/; max-age=${60 * 60 * 24}; SameSite=Lax`;
+      
       console.log('トークンを保存しました');
     } catch (error) {
       console.error('トークンの保存に失敗しました:', error);
@@ -108,7 +113,7 @@ class AuthManagerImpl implements AuthManager {
   }
   
   /**
-   * sessionStorageからトークンを取得
+   * sessionStorageまたはCookieからトークンを取得
    */
   getToken(): string | null {
     if (typeof window === 'undefined') {
@@ -116,7 +121,24 @@ class AuthManagerImpl implements AuthManager {
     }
     
     try {
-      return sessionStorage.getItem(TOKEN_STORAGE_KEY);
+      // まずsessionStorageから取得
+      let token = sessionStorage.getItem(TOKEN_STORAGE_KEY);
+      
+      // sessionStorageになければCookieから取得
+      if (!token) {
+        const cookies = document.cookie.split(';');
+        for (const cookie of cookies) {
+          const [name, value] = cookie.trim().split('=');
+          if (name === TOKEN_STORAGE_KEY) {
+            token = value;
+            // sessionStorageにも保存
+            sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+            break;
+          }
+        }
+      }
+      
+      return token;
     } catch (error) {
       console.error('トークンの取得に失敗しました:', error);
       return null;
@@ -124,7 +146,7 @@ class AuthManagerImpl implements AuthManager {
   }
   
   /**
-   * sessionStorageからトークンをクリア
+   * sessionStorageとCookieからトークンをクリア
    */
   clearToken(): void {
     if (typeof window === 'undefined') {
@@ -132,7 +154,12 @@ class AuthManagerImpl implements AuthManager {
     }
     
     try {
+      // sessionStorageからクリア
       sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+      
+      // Cookieからクリア
+      document.cookie = `${TOKEN_STORAGE_KEY}=; path=/; max-age=0`;
+      
       console.log('トークンをクリアしました');
     } catch (error) {
       console.error('トークンのクリアに失敗しました:', error);
