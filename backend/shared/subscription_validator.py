@@ -8,7 +8,7 @@ import time
 import logging
 from typing import Optional, Dict, Any
 from datetime import datetime
-from .rds_connection import RDSConnectionPool
+from .rds_connection import RDSConnection
 
 
 logger = logging.getLogger(__name__)
@@ -24,16 +24,16 @@ class SubscriptionValidator:
     - 5-minute result caching
     """
     
-    def __init__(self, rds_pool: RDSConnectionPool, service_id: str, cache_ttl: int = 300):
+    def __init__(self, rds_connection: RDSConnection, service_id: str, cache_ttl: int = 300):
         """
         Initialize subscription validator.
         
         Args:
-            rds_pool: RDS connection pool
+            rds_connection: RDS connection instance
             service_id: Document management service UUID
             cache_ttl: Cache TTL in seconds (default: 300 = 5 minutes)
         """
-        self.rds_pool = rds_pool
+        self.rds_connection = rds_connection
         self.service_id = service_id
         self.cache_ttl = cache_ttl
         
@@ -65,11 +65,11 @@ class SubscriptionValidator:
             query = """
                 SELECT tenant_id 
                 FROM tenant 
-                WHERE tenant_name = %s
+                WHERE tenant_name = $1
             """
-            result = self.rds_pool.execute_query(query, (tenant_name,), fetch_one=True)
+            results = self.rds_connection.execute_query(query, (tenant_name,))
             
-            tenant_id = result['tenant_id'] if result else None
+            tenant_id = results[0]['tenant_id'] if results else None
             
             # Update cache
             self._tenant_id_cache[tenant_name] = (tenant_id, time.time())
@@ -108,18 +108,17 @@ class SubscriptionValidator:
             query = """
                 SELECT subscription_id, status, expires_at
                 FROM tenant_service_subscription
-                WHERE tenant_id = %s 
-                  AND service_id = %s
+                WHERE tenant_id = $1 
+                  AND service_id = $2
                   AND status = 'active'
                   AND (expires_at IS NULL OR expires_at > NOW())
             """
-            result = self.rds_pool.execute_query(
+            results = self.rds_connection.execute_query(
                 query,
-                (tenant_id, self.service_id),
-                fetch_one=True
+                (tenant_id, self.service_id)
             )
             
-            has_subscription = result is not None
+            has_subscription = len(results) > 0
             
             # Update cache
             self._subscription_cache[cache_key] = (has_subscription, time.time())
@@ -165,14 +164,15 @@ class SubscriptionValidator:
                     created_at,
                     updated_at
                 FROM tenant_service_subscription
-                WHERE tenant_id = %s 
-                  AND service_id = %s
+                WHERE tenant_id = $1 
+                  AND service_id = $2
             """
-            result = self.rds_pool.execute_query(
+            results = self.rds_connection.execute_query(
                 query,
-                (tenant_id, self.service_id),
-                fetch_one=True
+                (tenant_id, self.service_id)
             )
+            
+            result = results[0] if results else None
             
             if result:
                 logger.info(

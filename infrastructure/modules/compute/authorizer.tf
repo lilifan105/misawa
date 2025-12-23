@@ -46,18 +46,15 @@ resource "aws_lambda_function" "authorizer" {
   role             = aws_iam_role.authorizer_exec[0].arn
   handler          = "lambda_function.lambda_handler"
   runtime          = "python3.12"
-  timeout          = 10
+  timeout          = 30
   memory_size      = 256
   source_code_hash = filebase64sha256("${path.root}/../backend/functions/authorizer.zip")
   
   # 共有モジュールのLambda Layerをアタッチ
   layers = [aws_lambda_layer_version.shared[0].arn]
 
-  # VPC設定（RDSアクセス用）
-  vpc_config {
-    subnet_ids         = var.private_subnet_ids
-    security_group_ids = [aws_security_group.lambda_authorizer[0].id]
-  }
+  # VPC設定を削除（Cognitoアクセスのため）
+  # RDS接続は後段のLambda関数で行う
 
   environment {
     variables = {

@@ -1,15 +1,13 @@
 """
 RDS Connection Module
 
-Manages PostgreSQL database connections with connection pooling and retry logic.
+Manages PostgreSQL database connections with retry logic using pg8000.
 """
 
 import time
 import logging
 from typing import List, Dict, Any, Optional
-import psycopg2
-from psycopg2 import pool, OperationalError, DatabaseError
-from psycopg2.extras import RealDictCursor
+import pg8000.native
 
 
 logger = logging.getLogger(__name__)
@@ -20,16 +18,14 @@ class ConnectionError(Exception):
     pass
 
 
-class RDSConnectionPool:
+class RDSConnection:
     """
-    Manages PostgreSQL connection pool with SSL/TLS and retry logic.
+    Manages PostgreSQL connection with SSL/TLS and retry logic.
     
     Features:
-    - Connection pooling (min_conn=2, max_conn=10)
-    - SSL/TLS encryption (sslmode=require)
+    - SSL/TLS encryption
     - Exponential backoff retry (max 3 attempts)
     - Connection timeout: 5 seconds
-    - Query timeout: 30 seconds
     """
     
     def __init__(
@@ -38,160 +34,210 @@ class RDSConnectionPool:
         port: int,
         database: str,
         user: str,
-        password: str,
-        min_conn: int = 2,
-        max_conn: int = 10
+        password: str
     ):
         """
-        Initialize RDS connection pool.
+        Initialize RDS connection.
         
         Args:
             host: RDS endpoint
             port: Database port (default: 5432)
             database: Database name
-            user: Database username
+            user: Database user
             password: Database password
-            min_conn: Minimum connections in pool
-            max_conn: Maximum connections in pool
         """
         self.host = host
         self.port = port
         self.database = database
         self.user = user
         self.password = password
-        self.min_conn = min_conn
-        self.max_conn = max_conn
+        self._connection = None
         
-        self._pool: Optional[pool.SimpleConnectionPool] = None
-        self._initialize_pool()
+        logger.info(f"RDS接続を初期化: host={host}, database={database}")
     
-    def _initialize_pool(self):
+    def _create_connection(self) -> pg8000.native.Connection:
         """
-        Initialize connection pool with retry logic.
+        Create a new database connection with retry logic.
         
+        Returns:
+            Database connection
+            
         Raises:
-            ConnectionError: If pool initialization fails after retries
+            ConnectionError: If connection fails after retries
         """
         max_retries = 3
         base_delay = 1  # seconds
         
         for attempt in range(max_retries):
             try:
-                self._pool = psycopg2.pool.SimpleConnectionPool(
-                    self.min_conn,
-                    self.max_conn,
+                logger.info(f"RDS接続試行 {attempt + 1}/{max_retries}")
+                
+                conn = pg8000.native.Connection(
                     host=self.host,
                     port=self.port,
                     database=self.database,
                     user=self.user,
                     password=self.password,
-                    sslmode='require',  # Force SSL/TLS
-                    connect_timeout=5,
-                    options='-c statement_timeout=30000'  # 30 second query timeout
+                    timeout=5,
+                    ssl_context=True  # SSL/TLS有効化
                 )
-                logger.info(f"Successfully initialized RDS connection pool to {self.host}")
-                return
                 
-            except OperationalError as e:
+                logger.info("RDS接続成功")
+                return conn
+                
+            except Exception as e:
+                logger.warning(f"RDS接続失敗 (試行 {attempt + 1}/{max_retries}): {str(e)}")
+                
                 if attempt < max_retries - 1:
-                    delay = base_delay * (2 ** attempt)  # Exponential backoff
-                    logger.warning(
-                        f"Connection attempt {attempt + 1} failed: {str(e)}. "
-                        f"Retrying in {delay} seconds..."
-                    )
+                    # Exponential backoff
+                    delay = base_delay * (2 ** attempt)
+                    logger.info(f"{delay}秒後に再試行します")
                     time.sleep(delay)
                 else:
-                    logger.error(f"Failed to initialize connection pool after {max_retries} attempts")
-                    raise ConnectionError(f"Failed to connect to RDS: {str(e)}")
+                    error_msg = f"RDS接続失敗（最大リトライ回数超過）: {str(e)}"
+                    logger.error(error_msg)
+                    raise ConnectionError(error_msg)
     
-    def get_connection(self) -> psycopg2.extensions.connection:
+    def get_connection(self) -> pg8000.native.Connection:
         """
-        Get a connection from the pool.
+        Get database connection (create if not exists).
         
         Returns:
             Database connection
-            
-        Raises:
-            ConnectionError: If connection cannot be obtained
         """
-        if not self._pool:
-            raise ConnectionError("Connection pool not initialized")
-        
-        try:
-            conn = self._pool.getconn()
-            if conn:
-                return conn
-            else:
-                raise ConnectionError("Failed to get connection from pool")
-        except Exception as e:
-            raise ConnectionError(f"Error getting connection: {str(e)}")
-    
-    def return_connection(self, conn: psycopg2.extensions.connection):
-        """
-        Return a connection to the pool.
-        
-        Args:
-            conn: Database connection to return
-        """
-        if self._pool and conn:
-            self._pool.putconn(conn)
+        if self._connection is None:
+            self._connection = self._create_connection()
+        return self._connection
     
     def execute_query(
         self,
         query: str,
-        params: tuple = None,
-        fetch_one: bool = False
+        params: Optional[tuple] = None
     ) -> List[Dict[str, Any]]:
         """
-        Execute SQL query with automatic connection management.
+        Execute SELECT query and return results.
         
         Args:
-            query: SQL query with placeholders (%s)
-            params: Query parameters tuple
-            fetch_one: If True, return only first result
+            query: SQL query
+            params: Query parameters (optional)
             
         Returns:
-            Query results as list of dicts (or single dict if fetch_one=True)
+            List of result rows as dictionaries
             
         Raises:
-            DatabaseError: If query execution fails
-            ConnectionError: If connection fails
+            ConnectionError: If query execution fails
         """
-        conn = None
-        cursor = None
-        
         try:
             conn = self.get_connection()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
             
-            # Execute query
-            cursor.execute(query, params or ())
+            logger.debug(f"クエリ実行: {query}")
+            if params:
+                logger.debug(f"パラメータ: {params}")
             
-            # Fetch results
-            if fetch_one:
-                result = cursor.fetchone()
-                return dict(result) if result else None
-            else:
-                results = cursor.fetchall()
-                return [dict(row) for row in results]
+            # pg8000.nativeはクエリ結果を直接返す
+            results = conn.run(query, *params) if params else conn.run(query)
             
-        except OperationalError as e:
-            logger.error(f"Database operational error: {str(e)}")
-            raise ConnectionError(f"Database connection error: {str(e)}")
-        except DatabaseError as e:
-            logger.error(f"Database error executing query: {str(e)}")
-            raise DatabaseError(f"Query execution failed: {str(e)}")
+            # 列名を取得
+            columns = [desc[0] for desc in conn.columns]
+            
+            # 辞書形式に変換
+            result_dicts = [dict(zip(columns, row)) for row in results]
+            
+            logger.debug(f"クエリ結果: {len(result_dicts)}行")
+            return result_dicts
+            
         except Exception as e:
-            logger.error(f"Unexpected error executing query: {str(e)}")
-            raise DatabaseError(f"Unexpected database error: {str(e)}")
-        finally:
-            if cursor:
-                cursor.close()
-            if conn:
-                self.return_connection(conn)
+            error_msg = f"クエリ実行エラー: {str(e)}"
+            logger.error(error_msg)
+            # 接続をリセット
+            self._connection = None
+            raise ConnectionError(error_msg)
     
-    def close_all_connections(self):
-        """Close all connections in the pool."""
-        if self._pool:
-            self._pool.closeall()
-            logger.info("Closed all connections in pool")
+    def execute_update(
+        self,
+        query: str,
+        params: Optional[tuple] = None
+    ) -> int:
+        """
+        Execute INSERT/UPDATE/DELETE query.
+        
+        Args:
+            query: SQL query
+            params: Query parameters (optional)
+            
+        Returns:
+            Number of affected rows
+            
+        Raises:
+            ConnectionError: If query execution fails
+        """
+        try:
+            conn = self.get_connection()
+            
+            logger.debug(f"更新クエリ実行: {query}")
+            if params:
+                logger.debug(f"パラメータ: {params}")
+            
+            conn.run(query, *params) if params else conn.run(query)
+            
+            # pg8000はrowcountを直接提供しないため、1を返す
+            affected_rows = 1
+            
+            logger.debug(f"更新完了: {affected_rows}行")
+            return affected_rows
+            
+        except Exception as e:
+            error_msg = f"更新クエリ実行エラー: {str(e)}"
+            logger.error(error_msg)
+            # 接続をリセット
+            self._connection = None
+            raise ConnectionError(error_msg)
+    
+    def close(self):
+        """Close database connection."""
+        if self._connection:
+            try:
+                self._connection.close()
+                logger.info("RDS接続をクローズしました")
+            except Exception as e:
+                logger.warning(f"RDS接続クローズ時のエラー: {str(e)}")
+            finally:
+                self._connection = None
+
+
+# グローバル接続インスタンス（Lambda関数間で再利用）
+_global_connection: Optional[RDSConnection] = None
+
+
+def get_rds_connection(
+    host: str,
+    port: int,
+    database: str,
+    user: str,
+    password: str
+) -> RDSConnection:
+    """
+    Get or create global RDS connection instance.
+    
+    Args:
+        host: RDS endpoint
+        port: Database port
+        database: Database name
+        user: Database user
+        password: Database password
+        
+    Returns:
+        RDS connection instance
+    """
+    global _global_connection
+    
+    if _global_connection is None:
+        _global_connection = RDSConnection(
+            host=host,
+            port=port,
+            database=database,
+            user=user,
+            password=password
+        )
+    
+    return _global_connection

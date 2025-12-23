@@ -16,7 +16,7 @@ import sys
 sys.path.insert(0, '/opt/python')  # Lambda Layerのパス
 
 from shared.jwt_validator import JWTValidator, InvalidTokenError, MissingClaimError
-from shared.rds_connection import RDSConnectionPool, ConnectionError as RDSConnectionError
+from shared.rds_connection import get_rds_connection, ConnectionError as RDSConnectionError
 from shared.subscription_validator import SubscriptionValidator
 
 
@@ -39,7 +39,7 @@ MULTITENANT_MODE = os.environ.get('MULTITENANT_MODE', 'false').lower() == 'true'
 
 # グローバル変数（Lambda実行環境で再利用）
 jwt_validator = None
-rds_pool = None
+rds_connection = None
 subscription_validator = None
 
 
@@ -48,7 +48,7 @@ def initialize_components():
     コンポーネントを初期化します。
     Lambda実行環境で再利用されるため、初回のみ実行されます。
     """
-    global jwt_validator, rds_pool, subscription_validator
+    global jwt_validator, rds_connection, subscription_validator
     
     if jwt_validator is None:
         logger.info("JWT Validatorを初期化中...")
@@ -57,9 +57,9 @@ def initialize_components():
             user_pool_id=COGNITO_USER_POOL_ID
         )
     
-    if rds_pool is None:
-        logger.info("RDS接続プールを初期化中...")
-        rds_pool = RDSConnectionPool(
+    if rds_connection is None:
+        logger.info("RDS接続を初期化中...")
+        rds_connection = get_rds_connection(
             host=MULTITENANT_RDS_HOST,
             port=MULTITENANT_RDS_PORT,
             database=MULTITENANT_RDS_DATABASE,
@@ -70,7 +70,7 @@ def initialize_components():
     if subscription_validator is None:
         logger.info("Subscription Validatorを初期化中...")
         subscription_validator = SubscriptionValidator(
-            rds_pool=rds_pool,
+            rds_connection=rds_connection,
             service_id=DOCUMENT_SERVICE_ID
         )
 

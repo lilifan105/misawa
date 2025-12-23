@@ -8,11 +8,11 @@ $LayerDir = "layer"
 if (Test-Path $LayerDir) {
     Remove-Item -Recurse -Force $LayerDir
 }
-New-Item -ItemType Directory -Path "$LayerDir\python" | Out-Null
+New-Item -ItemType Directory -Path "$LayerDir\python\shared" | Out-Null
 
 # 共有モジュールをコピー
 Write-Host "共有モジュールをコピー中..." -ForegroundColor Yellow
-Get-ChildItem -Filter "*.py" | Copy-Item -Destination "$LayerDir\python\"
+Get-ChildItem -Filter "*.py" | Copy-Item -Destination "$LayerDir\python\shared\"
 
 # 依存関係のインストール
 Write-Host "依存関係をインストール中..." -ForegroundColor Yellow
