@@ -1,4 +1,4 @@
-import { authManager } from './auth';
+import { authManager, getIdToken } from './auth';
 
 // API設定
 const API_ENDPOINT = process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:3000/api';
@@ -8,6 +8,9 @@ const MULTITENANT_URL = process.env.NEXT_PUBLIC_MULTITENANT_URL || 'https://port
 /**
  * 認証ヘッダーを取得
  * マルチテナントモードの場合、JWTトークンをAuthorizationヘッダーに含めます。
+ * 
+ * 重要: Cognitoのカスタム属性（tenant_name、role）はIDトークンにのみ含まれるため、
+ * API呼び出しにはid_tokenを使用します。access_tokenにはカスタム属性が含まれません。
  */
 function getAuthHeaders(): HeadersInit {
   const headers: HeadersInit = {
@@ -15,7 +18,8 @@ function getAuthHeaders(): HeadersInit {
   };
   
   if (MULTITENANT_MODE) {
-    const token = authManager.getToken();
+    // IDトークンを使用（カスタム属性が含まれる）
+    const token = getIdToken();
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }

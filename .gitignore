@@ -65,13 +65,23 @@ infrastructure/.terraform/
 infrastructure/.terraform.lock.hcl
 infrastructure/terraform.tfstate
 infrastructure/terraform.tfstate.backup
+infrastructure/terraform.tfstate.*.backup
 infrastructure/*.tfvars
 infrastructure/.terraform.tfstate.lock.info
+infrastructure/tfplan
+infrastructure/*.tfplan
 
 # Lambda packages
 backend/lambda/*.zip
 backend/functions/*.zip
+backend/functions/**/*.zip
 backend/layers/*.zip
+backend/shared/*.zip
+
+# Test files
+test-*.json
+response.json
+rds-info.json
 
 # Environment variables
 frontend/.env.local

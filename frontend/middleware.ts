@@ -74,12 +74,18 @@ export function middleware(request: NextRequest) {
   }
   
   // URLパラメータからトークンを取得
+  // OAuth 2.0形式（推奨）
+  const accessTokenFromUrl = searchParams.get('access_token');
+  const idTokenFromUrl = searchParams.get('id_token');
+  
+  // レガシー形式
   const tokenFromUrl = searchParams.get('token');
   
   // Cookieからトークンを取得（フォールバック）
   const tokenFromCookie = request.cookies.get('multitenant_jwt_token')?.value;
   
-  const token = tokenFromUrl || tokenFromCookie;
+  // 検証用のトークン（id_tokenまたはレガシートークン）
+  const token = idTokenFromUrl || tokenFromUrl || tokenFromCookie;
   
   // トークンがない、または無効な場合
   if (!token || !isTokenValid(token)) {
@@ -106,8 +112,9 @@ export function middleware(request: NextRequest) {
   
   // トークンが有効な場合、Cookieに保存（sessionStorageのフォールバック）
   const response = NextResponse.next();
-  if (tokenFromUrl) {
-    response.cookies.set('multitenant_jwt_token', tokenFromUrl, {
+  if (idTokenFromUrl || tokenFromUrl) {
+    const tokenToStore = idTokenFromUrl || tokenFromUrl;
+    response.cookies.set('multitenant_jwt_token', tokenToStore, {
       httpOnly: false, // クライアントサイドからもアクセス可能
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

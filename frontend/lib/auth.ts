@@ -32,6 +32,8 @@ export interface AuthManager {
  * sessionStorageのキー
  */
 const TOKEN_STORAGE_KEY = 'multitenant_jwt_token';
+const ACCESS_TOKEN_STORAGE_KEY = 'multitenant_access_token';
+const ID_TOKEN_STORAGE_KEY = 'multitenant_id_token';
 
 /**
  * Base64URLデコード
@@ -227,7 +229,11 @@ if (typeof window !== 'undefined') {
  * URLパラメータからトークンを取得して保存
  * 
  * マルチテナントサービスからリダイレクトされた際に、
- * URLパラメータ ?token=xxx からトークンを取得します。
+ * URLパラメータからトークンを取得します。
+ * 
+ * サポートされるパラメータ:
+ * - ?token=xxx (レガシー形式)
+ * - ?access_token=xxx&id_token=yyy (OAuth 2.0形式 - 推奨)
  */
 export function initializeTokenFromUrl(): void {
   if (typeof window === 'undefined') {
@@ -236,14 +242,38 @@ export function initializeTokenFromUrl(): void {
   
   try {
     const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
     
-    if (token) {
-      authManager.setToken(token);
-      console.log('URLパラメータからトークンを初期化しました');
+    // OAuth 2.0形式のトークン（推奨）
+    const accessToken = urlParams.get('access_token');
+    const idToken = urlParams.get('id_token');
+    
+    // レガシー形式のトークン
+    const legacyToken = urlParams.get('token');
+    
+    if (accessToken && idToken) {
+      // OAuth 2.0形式: access_tokenとid_tokenの両方を保存
+      sessionStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken);
+      sessionStorage.setItem(ID_TOKEN_STORAGE_KEY, idToken);
+      
+      // id_tokenをメイントークンとして保存（ユーザー情報取得用）
+      authManager.setToken(idToken);
+      
+      console.log('OAuth 2.0トークンを初期化しました');
+      
+      // URLからトークンパラメータを削除（セキュリティのため）
+      urlParams.delete('access_token');
+      urlParams.delete('id_token');
+    } else if (legacyToken) {
+      // レガシー形式: 単一のトークン
+      authManager.setToken(legacyToken);
+      console.log('レガシートークンを初期化しました');
       
       // URLからトークンパラメータを削除（セキュリティのため）
       urlParams.delete('token');
+    }
+    
+    // URLを更新（トークンパラメータを削除）
+    if (accessToken || idToken || legacyToken) {
       const newUrl = window.location.pathname + 
         (urlParams.toString() ? '?' + urlParams.toString() : '') +
         window.location.hash;
@@ -251,6 +281,62 @@ export function initializeTokenFromUrl(): void {
     }
   } catch (error) {
     console.error('URLからのトークン初期化に失敗しました:', error);
+  }
+}
+
+/**
+ * アクセストークンを取得
+ * 
+ * 注意: Cognitoのカスタム属性はIDトークンにのみ含まれるため、
+ * API呼び出しにはgetIdToken()を使用してください。
+ * この関数は将来の拡張用に残しています。
+ */
+export function getAccessToken(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
+  try {
+    // OAuth 2.0形式のaccess_tokenを優先
+    const accessToken = sessionStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+    if (accessToken) {
+      return accessToken;
+    }
+    
+    // フォールバック: レガシー形式のトークン
+    return authManager.getToken();
+  } catch (error) {
+    console.error('アクセストークンの取得に失敗しました:', error);
+    return null;
+  }
+}
+
+/**
+ * IDトークンを取得
+ * 
+ * ユーザー情報取得とAPI呼び出しに使用するIDトークンを取得します。
+ * 
+ * 重要: Cognitoのカスタム属性（custom:tenant_name、custom:role）は
+ * IDトークンにのみ含まれます。アクセストークンには含まれません。
+ * そのため、API呼び出しにはこのIDトークンを使用する必要があります。
+ */
+export function getIdToken(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
+  try {
+    // OAuth 2.0形式のid_tokenを優先
+    const idToken = sessionStorage.getItem(ID_TOKEN_STORAGE_KEY);
+    if (idToken) {
+      return idToken;
+    }
+    
+    // フォールバック: レガシー形式のトークン
+    return authManager.getToken();
+  } catch (error) {
+    console.error('IDトークンの取得に失敗しました:', error);
+    return null;
   }
 }
 
