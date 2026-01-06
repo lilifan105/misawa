@@ -60,6 +60,7 @@ resource "aws_lambda_function" "authorizer" {
     variables = {
       COGNITO_REGION           = var.cognito_region
       COGNITO_USER_POOL_ID     = var.cognito_user_pool_id
+      MULTITENANT_ISSUER       = var.multitenant_issuer
       MULTITENANT_RDS_HOST     = var.multitenant_rds_host
       MULTITENANT_RDS_PORT     = var.multitenant_rds_port
       MULTITENANT_RDS_DATABASE = var.multitenant_rds_database

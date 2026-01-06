@@ -70,6 +70,7 @@ module "compute" {
   multitenant_mode         = var.multitenant_mode
   cognito_region           = var.cognito_region
   cognito_user_pool_id     = var.cognito_user_pool_id
+  multitenant_issuer       = var.multitenant_issuer
   multitenant_rds_host     = var.multitenant_rds_host
   multitenant_rds_port     = var.multitenant_rds_port
   multitenant_rds_database = var.multitenant_rds_database

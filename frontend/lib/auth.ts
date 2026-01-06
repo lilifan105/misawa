@@ -7,11 +7,17 @@
 
 /**
  * トークンクレーム型定義
+ * マルチテナントサービス形式（tenant_name）とCognito形式（custom:tenant_name）の両方をサポート
  */
 export interface TokenClaims {
-  'custom:tenant_name': string;
+  // マルチテナントサービス形式
+  'tenant_name'?: string;
+  'role'?: string;
+  // Cognito形式
+  'custom:tenant_name'?: string;
+  'custom:role'?: string;
+  // 共通
   name: string;
-  'custom:role': string;
   sub: string;
   exp: number;
   email?: string;
@@ -344,6 +350,7 @@ export function getIdToken(): string | null {
  * テナント情報を取得
  * 
  * トークンからテナント名とテナントIDを抽出します。
+ * マルチテナントサービス形式（tenant_name）とCognito形式（custom:tenant_name）の両方をサポート
  */
 export function getTenantInfo(): { tenantName: string; username: string; role: string } | null {
   const claims = authManager.getTokenClaims();
@@ -351,9 +358,17 @@ export function getTenantInfo(): { tenantName: string; username: string; role: s
     return null;
   }
   
+  // マルチテナントサービス形式（tenant_name）とCognito形式（custom:tenant_name）の両方をサポート
+  const tenantName = claims['tenant_name'] || claims['custom:tenant_name'];
+  const role = claims['role'] || claims['custom:role'];
+  
+  if (!tenantName || !role) {
+    return null;
+  }
+  
   return {
-    tenantName: claims['custom:tenant_name'],
+    tenantName,
     username: claims.name,
-    role: claims['custom:role']
+    role
   };
 }

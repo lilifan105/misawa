@@ -78,6 +78,12 @@ variable "cognito_user_pool_id" {
   default     = ""
 }
 
+variable "multitenant_issuer" {
+  description = "マルチテナントサービスの発行者URL（例: https://multitenant-saas-platform-poc-dev.example.com）"
+  type        = string
+  default     = ""
+}
+
 variable "multitenant_rds_host" {
   description = "マルチテナントRDSのホスト名"
   type        = string

@@ -1,7 +1,7 @@
 """
 JWT Token Validator Module
 
-Validates Cognito JWT tokens and extracts claims.
+Validates Cognito JWT tokens and Multitenant Service JWT tokens, and extracts claims.
 """
 
 import os
@@ -24,31 +24,39 @@ class MissingClaimError(Exception):
 
 class JWTValidator:
     """
-    Validates Cognito JWT tokens and extracts claims.
+    Validates Cognito JWT tokens and Multitenant Service JWT tokens, and extracts claims.
     
     Caches JWKS (JSON Web Key Set) for 1 hour to improve performance.
     """
     
-    def __init__(self, region: str, user_pool_id: str):
+    def __init__(self, region: str, user_pool_id: str, multitenant_issuer: Optional[str] = None):
         """
         Initialize JWT validator.
         
         Args:
             region: AWS region (e.g., 'ap-northeast-1')
             user_pool_id: Cognito User Pool ID
+            multitenant_issuer: Multitenant service issuer URL (optional)
         """
         self.region = region
         self.user_pool_id = user_pool_id
-        self.jwks_url = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}/.well-known/jwks.json"
+        self.cognito_jwks_url = f"https://cognito-idp.{region}.amazonaws.com/{user_pool_id}/.well-known/jwks.json"
+        self.multitenant_issuer = multitenant_issuer
+        self.multitenant_jwks_url = f"{multitenant_issuer}/.well-known/jwks.json" if multitenant_issuer else None
         
         # Cache for JWKS
-        self._jwks_cache: Optional[Dict[str, Any]] = None
-        self._jwks_cache_time: float = 0
+        self._cognito_jwks_cache: Optional[Dict[str, Any]] = None
+        self._cognito_jwks_cache_time: float = 0
+        self._multitenant_jwks_cache: Optional[Dict[str, Any]] = None
+        self._multitenant_jwks_cache_time: float = 0
         self._jwks_cache_ttl: int = 3600  # 1 hour
         
-    def _get_jwks(self) -> Dict[str, Any]:
+    def _get_jwks(self, issuer: str) -> Dict[str, Any]:
         """
-        Get JWKS from Cognito, using cache if available.
+        Get JWKS from issuer, using cache if available.
+        
+        Args:
+            issuer: Token issuer URL
         
         Returns:
             JWKS dictionary
@@ -58,24 +66,39 @@ class JWTValidator:
         """
         current_time = time.time()
         
+        # Determine which JWKS URL and cache to use
+        if self.multitenant_issuer and issuer.startswith(self.multitenant_issuer):
+            jwks_url = self.multitenant_jwks_url
+            cache = self._multitenant_jwks_cache
+            cache_time = self._multitenant_jwks_cache_time
+            is_multitenant = True
+        else:
+            jwks_url = self.cognito_jwks_url
+            cache = self._cognito_jwks_cache
+            cache_time = self._cognito_jwks_cache_time
+            is_multitenant = False
+        
         # Return cached JWKS if still valid
-        if self._jwks_cache and (current_time - self._jwks_cache_time) < self._jwks_cache_ttl:
-            return self._jwks_cache
+        if cache and (current_time - cache_time) < self._jwks_cache_ttl:
+            return cache
         
         # Fetch fresh JWKS
         try:
-            response = requests.get(self.jwks_url, timeout=5)
+            response = requests.get(jwks_url, timeout=5)
             response.raise_for_status()
             jwks = response.json()
             
             # Update cache
-            self._jwks_cache = jwks
-            self._jwks_cache_time = current_time
+            if is_multitenant:
+                self._multitenant_jwks_cache = jwks
+                self._multitenant_jwks_cache_time = current_time
+            else:
+                self._cognito_jwks_cache = jwks
+                self._cognito_jwks_cache_time = current_time
             
             return jwks
         except Exception as e:
-            raise InvalidTokenError(f"Failed to retrieve JWKS: {str(e)}")
-    
+            raise InvalidTokenError(f"Failed to retrieve JWKS from {jwks_url}: {str(e)}")
     def validate_token(self, token: str) -> Dict[str, Any]:
         """
         Validate JWT token and extract claims.
@@ -85,26 +108,43 @@ class JWTValidator:
             
         Returns:
             Dict containing claims:
-                - custom:tenant_name: str
+                - tenant_name or custom:tenant_name: str
                 - name: str
-                - custom:role: str
+                - role or custom:role: str
                 - sub: str (user ID)
-                - email: str
+                - email: str (optional)
                 
         Raises:
             InvalidTokenError: Token is invalid or expired
             MissingClaimError: Required claims are missing
         """
+        import logging
+        logger = logging.getLogger()
+        
         try:
-            # Get JWKS
-            jwks = self._get_jwks()
+            # Get the unverified claims to determine issuer
+            unverified_claims = jwt.get_unverified_claims(token)
+            issuer = unverified_claims.get('iss')
+            
+            if not issuer:
+                logger.error("Token missing 'iss' (issuer) claim")
+                raise InvalidTokenError("Token missing 'iss' (issuer) claim")
+            
+            logger.info(f"トークン発行者: {issuer}")
+            
+            # Get JWKS based on issuer
+            jwks = self._get_jwks(issuer)
+            logger.info(f"JWKS取得成功: {len(jwks.get('keys', []))} keys found")
             
             # Get the key ID from token header
             unverified_header = jwt.get_unverified_header(token)
             kid = unverified_header.get('kid')
             
             if not kid:
+                logger.error("Token header missing 'kid' field")
                 raise InvalidTokenError("Token header missing 'kid' field")
+            
+            logger.info(f"トークンKID: {kid}")
             
             # Find the matching key in JWKS
             key = None
@@ -114,7 +154,11 @@ class JWTValidator:
                     break
             
             if not key:
+                logger.error(f"Public key not found for kid: {kid}")
+                logger.error(f"Available kids: {[k.get('kid') for k in jwks.get('keys', [])]}")
                 raise InvalidTokenError(f"Public key not found for kid: {kid}")
+            
+            logger.info("公開鍵マッチング成功")
             
             # Verify token signature and decode claims
             claims = jwt.decode(
@@ -129,22 +173,43 @@ class JWTValidator:
                 }
             )
             
+            logger.info(f"トークン署名検証成功")
+            logger.info(f"クレーム: sub={claims.get('sub')}, tenant_name={claims.get('tenant_name')}, custom:tenant_name={claims.get('custom:tenant_name')}")
+            
             # Validate required claims
-            required_claims = ['custom:tenant_name', 'name', 'custom:role', 'sub']
-            missing_claims = [claim for claim in required_claims if claim not in claims]
+            # マルチテナントサービス形式（tenant_name）とCognito形式（custom:tenant_name）の両方をサポート
+            has_tenant_name = 'tenant_name' in claims or 'custom:tenant_name' in claims
+            has_role = 'role' in claims or 'custom:role' in claims
             
-            if missing_claims:
-                raise MissingClaimError(f"Missing required claims: {', '.join(missing_claims)}")
+            if not has_tenant_name:
+                logger.error("Missing required claim: tenant_name or custom:tenant_name")
+                logger.error(f"Available claims: {list(claims.keys())}")
+                raise MissingClaimError("Missing required claim: tenant_name or custom:tenant_name")
             
+            if not has_role:
+                logger.error("Missing required claim: role or custom:role")
+                logger.error(f"Available claims: {list(claims.keys())}")
+                raise MissingClaimError("Missing required claim: role or custom:role")
+            
+            if 'sub' not in claims:
+                logger.error("Missing required claim: sub")
+                raise MissingClaimError("Missing required claim: sub")
+            
+            logger.info("必須クレーム検証成功")
             return claims
             
         except ExpiredSignatureError:
+            logger.error("Token has expired")
             raise InvalidTokenError("Token has expired")
         except JWTClaimsError as e:
+            logger.error(f"Token claims validation failed: {str(e)}")
             raise InvalidTokenError(f"Token claims validation failed: {str(e)}")
         except JWTError as e:
+            logger.error(f"Token validation failed: {str(e)}")
             raise InvalidTokenError(f"Token validation failed: {str(e)}")
         except Exception as e:
             if isinstance(e, (InvalidTokenError, MissingClaimError)):
                 raise
+            logger.error(f"Unexpected error during token validation: {str(e)}")
+            logger.error(f"Error type: {type(e).__name__}")
             raise InvalidTokenError(f"Unexpected error during token validation: {str(e)}")

@@ -17,6 +17,7 @@ function AccessDeniedContent() {
   const searchParams = useSearchParams();
   const tenantName = searchParams.get('tenant') || '不明なテナント';
   const serviceName = searchParams.get('service') || '文書管理システム';
+  const reason = searchParams.get('reason') || 'アクセス権限がありません';
   const contactEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@example.com';
   const multitenantUrl = process.env.NEXT_PUBLIC_MULTITENANT_URL || 'https://portal.example.com';
   
@@ -39,10 +40,30 @@ function AccessDeniedContent() {
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              お客様のテナント <strong className="font-semibold">{tenantName}</strong> は、
-              <strong className="font-semibold">{serviceName}</strong> へのアクセス権限がありません。
+              {tenantName !== '不明なテナント' ? (
+                <>
+                  お客様のテナント <strong className="font-semibold">{tenantName}</strong> は、
+                  <strong className="font-semibold">{serviceName}</strong> へのアクセス権限がありません。
+                </>
+              ) : (
+                <>
+                  <strong className="font-semibold">{serviceName}</strong> へのアクセスが拒否されました。
+                </>
+              )}
             </AlertDescription>
           </Alert>
+          
+          {/* デバッグ情報: 拒否理由 */}
+          {reason && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 space-y-2">
+              <h3 className="font-semibold text-sm text-yellow-800 dark:text-yellow-200">
+                拒否理由（デバッグ情報）
+              </h3>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300 font-mono">
+                {reason}
+              </p>
+            </div>
+          )}
           
           <div className="space-y-4">
             <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">

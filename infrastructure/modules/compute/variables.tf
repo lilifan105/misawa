@@ -55,6 +55,12 @@ variable "cognito_user_pool_id" {
   default     = ""
 }
 
+variable "multitenant_issuer" {
+  type        = string
+  description = "Multitenant service issuer URL for JWT validation (e.g., https://multitenant-saas-platform-poc-dev.example.com)"
+  default     = ""
+}
+
 variable "multitenant_rds_host" {
   type        = string
   description = "Multitenant RDS PostgreSQL host"

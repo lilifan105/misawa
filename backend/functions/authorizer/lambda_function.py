@@ -28,6 +28,7 @@ logger.setLevel(logging.INFO)
 # 環境変数の取得
 COGNITO_REGION = os.environ.get('COGNITO_REGION', 'ap-northeast-1')
 COGNITO_USER_POOL_ID = os.environ.get('COGNITO_USER_POOL_ID')
+MULTITENANT_ISSUER = os.environ.get('MULTITENANT_ISSUER')  # マルチテナントサービスの発行者URL
 MULTITENANT_RDS_HOST = os.environ.get('MULTITENANT_RDS_HOST')
 MULTITENANT_RDS_PORT = int(os.environ.get('MULTITENANT_RDS_PORT', '5432'))
 MULTITENANT_RDS_DATABASE = os.environ.get('MULTITENANT_RDS_DATABASE', 'multitenant')
@@ -54,7 +55,8 @@ def initialize_components():
         logger.info("JWT Validatorを初期化中...")
         jwt_validator = JWTValidator(
             region=COGNITO_REGION,
-            user_pool_id=COGNITO_USER_POOL_ID
+            user_pool_id=COGNITO_USER_POOL_ID,
+            multitenant_issuer=MULTITENANT_ISSUER
         )
     
     if rds_connection is None:
@@ -190,17 +192,30 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # JWTトークンの検証
         try:
             claims = jwt_validator.validate_token(token)
-            tenant_name = claims['custom:tenant_name']
-            username = claims['name']
-            role = claims['custom:role']
+            
+            # マルチテナントサービス形式（tenant_name）とCognito形式（custom:tenant_name）の両方をサポート
+            tenant_name = claims.get('tenant_name') or claims.get('custom:tenant_name')
+            username = claims.get('name', '')
+            role = claims.get('role') or claims.get('custom:role')
             user_id = claims['sub']
+            
+            if not tenant_name:
+                logger.warning("テナント名が見つかりません")
+                logger.warning(f"利用可能なクレーム: {list(claims.keys())}")
+                return generate_policy(
+                    principal_id='unknown',
+                    effect='Deny',
+                    resource=event.get('methodArn', '*')
+                )
             
             logger.info(
                 f"トークン検証成功: tenant_name={tenant_name}, "
-                f"username={username}, role={role}"
+                f"username={username}, role={role}, user_id={user_id}"
             )
+            logger.info(f"トークン発行者: {claims.get('iss', 'unknown')}")
         except (InvalidTokenError, MissingClaimError) as e:
             logger.warning(f"トークン検証失敗: {str(e)}")
+            logger.warning(f"エラータイプ: {type(e).__name__}")
             return generate_policy(
                 principal_id='unknown',
                 effect='Deny',
@@ -209,9 +224,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # テナントIDの取得
         try:
+            logger.info(f"テナントID取得開始: tenant_name={tenant_name}")
             tenant_id = subscription_validator.get_tenant_id(tenant_name)
             if not tenant_id:
                 logger.warning(f"テナントが見つかりません: tenant_name={tenant_name}")
+                logger.warning("データベース接続を確認してください")
                 return generate_policy(
                     principal_id=user_id,
                     effect='Deny',
@@ -221,6 +238,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.info(f"テナントID取得成功: tenant_id={tenant_id}")
         except Exception as e:
             logger.error(f"テナントID取得エラー: {str(e)}")
+            logger.error(f"エラータイプ: {type(e).__name__}")
+            logger.error(f"エラー詳細: {repr(e)}")
             return generate_policy(
                 principal_id=user_id,
                 effect='Deny',
@@ -229,12 +248,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # サブスクリプションの確認
         try:
+            logger.info(f"サブスクリプション確認開始: tenant_id={tenant_id}, service_id={DOCUMENT_SERVICE_ID}")
             has_subscription = subscription_validator.check_subscription(tenant_id)
             if not has_subscription:
                 logger.warning(
                     f"アクティブなサブスクリプションがありません: "
                     f"tenant_id={tenant_id}, service_id={DOCUMENT_SERVICE_ID}"
                 )
+                logger.warning("サブスクリプションテーブルを確認してください")
                 return generate_policy(
                     principal_id=user_id,
                     effect='Deny',
@@ -244,6 +265,8 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.info(f"サブスクリプション確認成功: tenant_id={tenant_id}")
         except Exception as e:
             logger.error(f"サブスクリプション確認エラー: {str(e)}")
+            logger.error(f"エラータイプ: {type(e).__name__}")
+            logger.error(f"エラー詳細: {repr(e)}")
             return generate_policy(
                 principal_id=user_id,
                 effect='Deny',
