@@ -99,6 +99,12 @@ variable "document_service_id" {
   default     = ""
 }
 
+variable "multitenant_client_id" {
+  type        = string
+  description = "Multitenant service OAuth Client ID for JWT audience validation"
+  default     = ""
+}
+
 variable "vpc_id" {
   type        = string
   description = "VPC ID for Lambda functions"

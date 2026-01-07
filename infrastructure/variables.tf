@@ -84,6 +84,12 @@ variable "multitenant_issuer" {
   default     = ""
 }
 
+variable "multitenant_url" {
+  description = "マルチテナントサービスのURL（フロントエンド用、例: https://d3f0w4zg0s2x16.cloudfront.net）"
+  type        = string
+  default     = ""
+}
+
 variable "multitenant_rds_host" {
   description = "マルチテナントRDSのホスト名"
   type        = string
@@ -117,6 +123,12 @@ variable "multitenant_rds_password" {
 
 variable "document_service_id" {
   description = "文書管理サービスのUUID"
+  type        = string
+  default     = ""
+}
+
+variable "multitenant_client_id" {
+  description = "マルチテナントサービスのOAuth Client ID（JWT audience検証用）"
   type        = string
   default     = ""
 }

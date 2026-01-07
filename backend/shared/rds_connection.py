@@ -7,7 +7,7 @@ Manages PostgreSQL database connections with retry logic using pg8000.
 import time
 import logging
 from typing import List, Dict, Any, Optional
-import pg8000.native
+import pg8000
 
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,7 @@ class RDSConnection:
         
         logger.info(f"RDS接続を初期化: host={host}, database={database}")
     
-    def _create_connection(self) -> pg8000.native.Connection:
+    def _create_connection(self) -> pg8000.Connection:
         """
         Create a new database connection with retry logic.
         
@@ -70,9 +70,7 @@ class RDSConnection:
         
         for attempt in range(max_retries):
             try:
-                logger.info(f"RDS接続試行 {attempt + 1}/{max_retries}")
-                
-                conn = pg8000.native.Connection(
+                conn = pg8000.connect(
                     host=self.host,
                     port=self.port,
                     database=self.database,
@@ -91,14 +89,13 @@ class RDSConnection:
                 if attempt < max_retries - 1:
                     # Exponential backoff
                     delay = base_delay * (2 ** attempt)
-                    logger.info(f"{delay}秒後に再試行します")
                     time.sleep(delay)
                 else:
                     error_msg = f"RDS接続失敗（最大リトライ回数超過）: {str(e)}"
                     logger.error(error_msg)
                     raise ConnectionError(error_msg)
     
-    def get_connection(self) -> pg8000.native.Connection:
+    def get_connection(self) -> pg8000.Connection:
         """
         Get database connection (create if not exists).
         
@@ -129,21 +126,33 @@ class RDSConnection:
         """
         try:
             conn = self.get_connection()
+            cursor = conn.cursor()
             
-            logger.debug(f"クエリ実行: {query}")
-            if params:
-                logger.debug(f"パラメータ: {params}")
-            
-            # pg8000.nativeはクエリ結果を直接返す
-            results = conn.run(query, *params) if params else conn.run(query)
+            # DB-API 2.0標準の方法でクエリを実行
+            cursor.execute(query, params)
+            results = cursor.fetchall()
             
             # 列名を取得
-            columns = [desc[0] for desc in conn.columns]
+            columns = [desc[0] for desc in cursor.description] if cursor.description else []
+            
+            # 結果が空の場合は空のリストを返す
+            if not results:
+                return []
             
             # 辞書形式に変換
-            result_dicts = [dict(zip(columns, row)) for row in results]
+            result_dicts = []
+            for row in results:
+                if len(columns) != len(row):
+                    logger.error(f"列数不一致: columns={len(columns)}, row={len(row)}")
+                    continue
+                
+                try:
+                    row_dict = dict(zip(columns, row))
+                    result_dicts.append(row_dict)
+                except Exception as zip_error:
+                    logger.error(f"Error creating dict for row: {str(zip_error)}")
+                    raise ConnectionError(f"Failed to create dictionary for row: {str(zip_error)}")
             
-            logger.debug(f"クエリ結果: {len(result_dicts)}行")
             return result_dicts
             
         except Exception as e:
@@ -173,17 +182,14 @@ class RDSConnection:
         """
         try:
             conn = self.get_connection()
+            cursor = conn.cursor()
             
-            logger.debug(f"更新クエリ実行: {query}")
-            if params:
-                logger.debug(f"パラメータ: {params}")
+            cursor.execute(query, params)
+            conn.commit()
             
-            conn.run(query, *params) if params else conn.run(query)
+            # DB-API 2.0では rowcount で影響を受けた行数を取得
+            affected_rows = cursor.rowcount
             
-            # pg8000はrowcountを直接提供しないため、1を返す
-            affected_rows = 1
-            
-            logger.debug(f"更新完了: {affected_rows}行")
             return affected_rows
             
         except Exception as e:

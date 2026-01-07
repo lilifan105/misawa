@@ -17,21 +17,14 @@ function getAuthHeaders(): HeadersInit {
     'Content-Type': 'application/json'
   };
   
-  console.log('[API Debug] MULTITENANT_MODE:', MULTITENANT_MODE);
-  
   if (MULTITENANT_MODE) {
     // IDトークンを使用（カスタム属性が含まれる）
     const token = getIdToken();
-    console.log('[API Debug] Token exists:', !!token);
-    console.log('[API Debug] Token length:', token?.length);
-    console.log('[API Debug] Token preview:', token ? token.substring(0, 50) + '...' : 'null');
     
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
-      console.log('[API Debug] Authorization header set');
     } else {
-      console.error('[API Debug] トークンが取得できません！sessionStorageを確認してください');
-      console.error('[API Debug] sessionStorage keys:', Object.keys(sessionStorage));
+      console.error('トークンが取得できません');
     }
   }
   
@@ -40,7 +33,7 @@ function getAuthHeaders(): HeadersInit {
 
 /**
  * APIリクエストのエラーハンドリング
- * 401エラーの場合、マルチテナントサービスのログインにリダイレクトします。
+ * 401エラーと403エラーの場合、アクセス拒否画面にリダイレクトします。
  */
 async function handleApiResponse(response: Response) {
   if (response.status === 401) {
@@ -50,8 +43,10 @@ async function handleApiResponse(response: Response) {
       // トークンをクリア
       authManager.clearToken();
       
-      // マルチテナントサービスのログインにリダイレクト
-      window.location.href = MULTITENANT_URL;
+      // アクセス拒否画面にリダイレクト（401エラー用の理由を追加）
+      const tenantInfo = authManager.getTokenClaims();
+      const tenantName = tenantInfo?.['custom:tenant_name'] || 'unknown';
+      window.location.href = `/access-denied?tenant=${encodeURIComponent(tenantName)}&service=文書管理システム&reason=${encodeURIComponent('認証エラー: ログインが必要です')}`;
     }
     
     throw new Error('認証エラー: ログインが必要です');
@@ -64,7 +59,7 @@ async function handleApiResponse(response: Response) {
       // アクセス拒否画面にリダイレクト
       const tenantInfo = authManager.getTokenClaims();
       const tenantName = tenantInfo?.['custom:tenant_name'] || 'unknown';
-      window.location.href = `/access-denied?tenant=${encodeURIComponent(tenantName)}&service=文書管理システム`;
+      window.location.href = `/access-denied?tenant=${encodeURIComponent(tenantName)}&service=文書管理システム&reason=${encodeURIComponent('アクセス権限がありません')}`;
     }
     
     throw new Error('アクセス権限がありません');

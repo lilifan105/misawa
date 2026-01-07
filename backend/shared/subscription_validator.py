@@ -57,7 +57,6 @@ class SubscriptionValidator:
         if tenant_name in self._tenant_id_cache:
             cached_id, cache_time = self._tenant_id_cache[tenant_name]
             if (time.time() - cache_time) < self.cache_ttl:
-                logger.debug(f"Cache hit for tenant_name: {tenant_name}")
                 return cached_id
         
         # Query database
@@ -65,7 +64,7 @@ class SubscriptionValidator:
             query = """
                 SELECT tenant_id 
                 FROM tenant 
-                WHERE tenant_name = $1
+                WHERE tenant_name = %s
             """
             results = self.rds_connection.execute_query(query, (tenant_name,))
             
@@ -74,9 +73,7 @@ class SubscriptionValidator:
             # Update cache
             self._tenant_id_cache[tenant_name] = (tenant_id, time.time())
             
-            if tenant_id:
-                logger.info(f"Resolved tenant_name '{tenant_name}' to tenant_id '{tenant_id}'")
-            else:
+            if not tenant_id:
                 logger.warning(f"Tenant not found: {tenant_name}")
             
             return tenant_id
@@ -100,7 +97,6 @@ class SubscriptionValidator:
         if cache_key in self._subscription_cache:
             cached_result, cache_time = self._subscription_cache[cache_key]
             if (time.time() - cache_time) < self.cache_ttl:
-                logger.debug(f"Cache hit for subscription check: {cache_key}")
                 return cached_result
         
         # Query database
@@ -108,8 +104,8 @@ class SubscriptionValidator:
             query = """
                 SELECT subscription_id, status, expires_at
                 FROM tenant_service_subscription
-                WHERE tenant_id = $1 
-                  AND service_id = $2
+                WHERE tenant_id = %s 
+                  AND service_id = %s
                   AND status = 'active'
                   AND (expires_at IS NULL OR expires_at > NOW())
             """
@@ -123,23 +119,13 @@ class SubscriptionValidator:
             # Update cache
             self._subscription_cache[cache_key] = (has_subscription, time.time())
             
-            if has_subscription:
-                logger.info(
-                    f"Active subscription found for tenant_id '{tenant_id}' "
-                    f"to service_id '{self.service_id}'"
-                )
-            else:
-                logger.warning(
-                    f"No active subscription for tenant_id '{tenant_id}' "
-                    f"to service_id '{self.service_id}'"
-                )
+            if not has_subscription:
+                logger.warning(f"No active subscription for tenant_id '{tenant_id}'")
             
             return has_subscription
             
         except Exception as e:
-            logger.error(
-                f"Error checking subscription for tenant_id '{tenant_id}': {str(e)}"
-            )
+            logger.error(f"Error checking subscription for tenant_id '{tenant_id}': {str(e)}")
             return False
     
     def get_subscription_details(self, tenant_id: str) -> Optional[Dict[str, Any]]:
@@ -164,8 +150,8 @@ class SubscriptionValidator:
                     created_at,
                     updated_at
                 FROM tenant_service_subscription
-                WHERE tenant_id = $1 
-                  AND service_id = $2
+                WHERE tenant_id = %s 
+                  AND service_id = %s
             """
             results = self.rds_connection.execute_query(
                 query,
@@ -174,21 +160,13 @@ class SubscriptionValidator:
             
             result = results[0] if results else None
             
-            if result:
-                logger.info(
-                    f"Retrieved subscription details for tenant_id '{tenant_id}'"
-                )
-            else:
-                logger.warning(
-                    f"No subscription found for tenant_id '{tenant_id}'"
-                )
+            if not result:
+                logger.warning(f"No subscription found for tenant_id '{tenant_id}'")
             
             return result
             
         except Exception as e:
-            logger.error(
-                f"Error getting subscription details for tenant_id '{tenant_id}': {str(e)}"
-            )
+            logger.error(f"Error getting subscription details for tenant_id '{tenant_id}': {str(e)}")
             return None
     
     def clear_cache(self):

@@ -44,6 +44,7 @@ Push-Location ..\backend\shared
 
 # クリーンアップ
 if (Test-Path "python") { Remove-Item -Recurse -Force "python" }
+if (Test-Path "shared-layer.zip") { Remove-Item "shared-layer.zip" }
 if (Test-Path "shared_layer.zip") { Remove-Item "shared_layer.zip" }
 
 # Layerディレクトリ構造を作成
@@ -59,13 +60,13 @@ Copy-Item "*.py" -Destination "python\shared\" -Exclude "__pycache__"
 
 # zipファイルを作成
 Write-Host "  Creating zip file..." -ForegroundColor Yellow
-Compress-Archive -Path "python" -DestinationPath "shared_layer.zip"
+Compress-Archive -Path "python" -DestinationPath "shared-layer.zip"
 
 # クリーンアップ
 Remove-Item -Recurse -Force "python"
 
-$sharedLayerSize = (Get-Item "shared_layer.zip").Length / 1MB
-Write-Host "  OK shared_layer.zip created ($([math]::Round($sharedLayerSize, 2)) MB)" -ForegroundColor Green
+$sharedLayerSize = (Get-Item "shared-layer.zip").Length / 1MB
+Write-Host "  OK shared-layer.zip created ($([math]::Round($sharedLayerSize, 2)) MB)" -ForegroundColor Green
 
 Pop-Location
 
@@ -123,7 +124,7 @@ Write-Host ""
 Write-Host "Created files:" -ForegroundColor White
 Write-Host "  Layers:" -ForegroundColor Cyan
 Write-Host "    - backend/layers/powertools.zip ($([math]::Round($layerSize, 2)) MB)" -ForegroundColor White
-Write-Host "    - backend/shared/shared_layer.zip ($([math]::Round($sharedLayerSize, 2)) MB)" -ForegroundColor White
+Write-Host "    - backend/shared/shared-layer.zip ($([math]::Round($sharedLayerSize, 2)) MB)" -ForegroundColor White
 Write-Host "  Functions:" -ForegroundColor Cyan
 Write-Host "    - backend/functions/authorizer.zip ($([math]::Round($authSize, 2)) KB)" -ForegroundColor White
 Get-ChildItem ..\backend\functions\*.zip | Where-Object { $_.Name -ne "authorizer.zip" } | ForEach-Object { 

@@ -28,11 +28,17 @@ resource "aws_amplify_app" "frontend" {
   EOT
 
   # 環境変数
-  environment_variables = {
-    AMPLIFY_MONOREPO_APP_ROOT = "frontend"
-    NEXT_PUBLIC_API_ENDPOINT  = var.api_endpoint
-    _LIVE_UPDATES             = "[{\"pkg\":\"next\",\"type\":\"internal\",\"version\":\"latest\"}]"
-  }
+  environment_variables = merge(
+    {
+      AMPLIFY_MONOREPO_APP_ROOT = "frontend"
+      NEXT_PUBLIC_API_ENDPOINT  = var.api_endpoint
+      _LIVE_UPDATES             = "[{\"pkg\":\"next\",\"type\":\"internal\",\"version\":\"latest\"}]"
+    },
+    var.multitenant_mode == "true" ? {
+      NEXT_PUBLIC_MULTITENANT_MODE = "true"
+      NEXT_PUBLIC_MULTITENANT_URL  = var.multitenant_url
+    } : {}
+  )
 
   tags = {
     Name        = "${var.project_name}-frontend"
@@ -47,10 +53,16 @@ resource "aws_amplify_branch" "main" {
 
   enable_auto_build = true
 
-  environment_variables = {
-    AMPLIFY_MONOREPO_APP_ROOT = "frontend"
-    NEXT_PUBLIC_API_ENDPOINT  = var.api_endpoint
-  }
+  environment_variables = merge(
+    {
+      AMPLIFY_MONOREPO_APP_ROOT = "frontend"
+      NEXT_PUBLIC_API_ENDPOINT  = var.api_endpoint
+    },
+    var.multitenant_mode == "true" ? {
+      NEXT_PUBLIC_MULTITENANT_MODE = "true"
+      NEXT_PUBLIC_MULTITENANT_URL  = var.multitenant_url
+    } : {}
+  )
 
   tags = {
     Name        = "${var.project_name}-${var.branch_name}"

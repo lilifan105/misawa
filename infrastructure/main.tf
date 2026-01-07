@@ -77,6 +77,7 @@ module "compute" {
   multitenant_rds_user     = var.multitenant_rds_user
   multitenant_rds_password = var.multitenant_rds_password
   document_service_id      = var.document_service_id
+  multitenant_client_id    = var.multitenant_client_id
   vpc_id                   = var.vpc_id
   private_subnet_ids       = var.private_subnet_ids
   rds_cidr_blocks          = var.rds_cidr_blocks
@@ -111,4 +112,8 @@ module "frontend" {
   branch_name          = var.branch_name
   api_endpoint         = module.api.api_endpoint
   github_access_token  = var.github_access_token
+  
+  # マルチテナント設定
+  multitenant_mode     = var.multitenant_mode
+  multitenant_url      = var.multitenant_url
 }

@@ -30,3 +30,15 @@ variable "github_access_token" {
   sensitive   = true
   default     = ""
 }
+
+variable "multitenant_mode" {
+  description = "マルチテナントモードの有効化"
+  type        = string
+  default     = "false"
+}
+
+variable "multitenant_url" {
+  description = "マルチテナントサービスのURL"
+  type        = string
+  default     = ""
+}

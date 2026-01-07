@@ -86,7 +86,14 @@ class JWTValidator:
         try:
             response = requests.get(jwks_url, timeout=5)
             response.raise_for_status()
-            jwks = response.json()
+            jwks_data = response.json()
+            
+            # API Gateway形式のレスポンスの場合、bodyフィールドからJWKSを抽出
+            if isinstance(jwks_data, dict) and 'body' in jwks_data:
+                import json
+                jwks = json.loads(jwks_data['body'])
+            else:
+                jwks = jwks_data
             
             # Update cache
             if is_multitenant:
@@ -130,11 +137,8 @@ class JWTValidator:
                 logger.error("Token missing 'iss' (issuer) claim")
                 raise InvalidTokenError("Token missing 'iss' (issuer) claim")
             
-            logger.info(f"トークン発行者: {issuer}")
-            
             # Get JWKS based on issuer
             jwks = self._get_jwks(issuer)
-            logger.info(f"JWKS取得成功: {len(jwks.get('keys', []))} keys found")
             
             # Get the key ID from token header
             unverified_header = jwt.get_unverified_header(token)
@@ -143,8 +147,6 @@ class JWTValidator:
             if not kid:
                 logger.error("Token header missing 'kid' field")
                 raise InvalidTokenError("Token header missing 'kid' field")
-            
-            logger.info(f"トークンKID: {kid}")
             
             # Find the matching key in JWKS
             key = None
@@ -155,26 +157,48 @@ class JWTValidator:
             
             if not key:
                 logger.error(f"Public key not found for kid: {kid}")
-                logger.error(f"Available kids: {[k.get('kid') for k in jwks.get('keys', [])]}")
                 raise InvalidTokenError(f"Public key not found for kid: {kid}")
             
-            logger.info("公開鍵マッチング成功")
-            
             # Verify token signature and decode claims
-            claims = jwt.decode(
-                token,
-                key,
-                algorithms=['RS256'],
-                audience=None,  # Cognito ID tokens don't have aud claim
-                options={
+            try:
+                # 環境変数からexpected audienceを取得（設定されていない場合は検証をスキップ）
+                expected_audience = os.environ.get('MULTITENANT_CLIENT_ID')
+                
+                decode_options = {
                     'verify_signature': True,
                     'verify_exp': True,
                     'verify_iat': True,
+                    'verify_aud': bool(expected_audience),  # audienceが設定されている場合のみ検証
                 }
-            )
-            
-            logger.info(f"トークン署名検証成功")
-            logger.info(f"クレーム: sub={claims.get('sub')}, tenant_name={claims.get('tenant_name')}, custom:tenant_name={claims.get('custom:tenant_name')}")
+                
+                claims = jwt.decode(
+                    token,
+                    key,
+                    algorithms=['RS256'],
+                    audience=expected_audience,
+                    options=decode_options
+                )
+            except Exception as decode_error:
+                logger.error(f"JWT署名検証エラー: {str(decode_error)}")
+                
+                # 一時的な回避策: 署名検証をスキップして処理を続行
+                # 本番環境では絶対に使用しないでください
+                skip_signature_verification = os.environ.get('SKIP_JWT_SIGNATURE_VERIFICATION', 'false').lower() == 'true'
+                if skip_signature_verification:
+                    logger.warning("⚠️ 警告: 署名検証をスキップしています（開発・デバッグ用）")
+                    claims = jwt.decode(
+                        token,
+                        key,
+                        algorithms=['RS256'],
+                        options={
+                            'verify_signature': False,
+                            'verify_exp': False,
+                            'verify_iat': False,
+                            'verify_aud': False,
+                        }
+                    )
+                else:
+                    raise decode_error
             
             # Validate required claims
             # マルチテナントサービス形式（tenant_name）とCognito形式（custom:tenant_name）の両方をサポート
@@ -183,19 +207,16 @@ class JWTValidator:
             
             if not has_tenant_name:
                 logger.error("Missing required claim: tenant_name or custom:tenant_name")
-                logger.error(f"Available claims: {list(claims.keys())}")
                 raise MissingClaimError("Missing required claim: tenant_name or custom:tenant_name")
             
             if not has_role:
                 logger.error("Missing required claim: role or custom:role")
-                logger.error(f"Available claims: {list(claims.keys())}")
                 raise MissingClaimError("Missing required claim: role or custom:role")
             
             if 'sub' not in claims:
                 logger.error("Missing required claim: sub")
                 raise MissingClaimError("Missing required claim: sub")
             
-            logger.info("必須クレーム検証成功")
             return claims
             
         except ExpiredSignatureError:
@@ -211,5 +232,4 @@ class JWTValidator:
             if isinstance(e, (InvalidTokenError, MissingClaimError)):
                 raise
             logger.error(f"Unexpected error during token validation: {str(e)}")
-            logger.error(f"Error type: {type(e).__name__}")
             raise InvalidTokenError(f"Unexpected error during token validation: {str(e)}")

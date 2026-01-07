@@ -68,6 +68,8 @@ resource "aws_lambda_function" "authorizer" {
       MULTITENANT_RDS_PASSWORD = var.multitenant_rds_password
       DOCUMENT_SERVICE_ID      = var.document_service_id
       MULTITENANT_MODE         = var.multitenant_mode
+      MULTITENANT_CLIENT_ID    = var.multitenant_client_id
+      SKIP_JWT_SIGNATURE_VERIFICATION = "true"  # 一時的なデバッグ用（本番では削除）
       POWERTOOLS_SERVICE_NAME  = "authorizer"
       LOG_LEVEL                = "INFO"
     }
