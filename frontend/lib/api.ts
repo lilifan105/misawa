@@ -17,11 +17,21 @@ function getAuthHeaders(): HeadersInit {
     'Content-Type': 'application/json'
   };
   
+  console.log('[API Debug] MULTITENANT_MODE:', MULTITENANT_MODE);
+  
   if (MULTITENANT_MODE) {
     // IDトークンを使用（カスタム属性が含まれる）
     const token = getIdToken();
+    console.log('[API Debug] Token exists:', !!token);
+    console.log('[API Debug] Token length:', token?.length);
+    console.log('[API Debug] Token preview:', token ? token.substring(0, 50) + '...' : 'null');
+    
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+      console.log('[API Debug] Authorization header set');
+    } else {
+      console.error('[API Debug] トークンが取得できません！sessionStorageを確認してください');
+      console.error('[API Debug] sessionStorage keys:', Object.keys(sessionStorage));
     }
   }
   

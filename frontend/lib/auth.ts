@@ -20,7 +20,14 @@ export interface TokenClaims {
   name: string;
   sub: string;
   exp: number;
+  iss?: string;
+  aud?: string;
+  iat?: number;
   email?: string;
+  email_verified?: boolean;
+  tenant_id?: string;
+  scope?: string;
+  type?: string;
 }
 
 /**
@@ -243,10 +250,14 @@ if (typeof window !== 'undefined') {
  */
 export function initializeTokenFromUrl(): void {
   if (typeof window === 'undefined') {
+    console.log('[Auth Debug] サーバーサイドのため、トークン初期化をスキップ');
     return; // サーバーサイドでは何もしない
   }
   
   try {
+    console.log('[Auth Debug] トークン初期化開始');
+    console.log('[Auth Debug] Current URL:', window.location.href);
+    
     const urlParams = new URLSearchParams(window.location.search);
     
     // OAuth 2.0形式のトークン（推奨）
@@ -256,6 +267,14 @@ export function initializeTokenFromUrl(): void {
     // レガシー形式のトークン
     const legacyToken = urlParams.get('token');
     
+    console.log('[Auth Debug] URL params:', {
+      hasAccessToken: !!accessToken,
+      hasIdToken: !!idToken,
+      hasLegacyToken: !!legacyToken,
+      accessTokenLength: accessToken?.length,
+      idTokenLength: idToken?.length
+    });
+    
     if (accessToken && idToken) {
       // OAuth 2.0形式: access_tokenとid_tokenの両方を保存
       sessionStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, accessToken);
@@ -264,7 +283,18 @@ export function initializeTokenFromUrl(): void {
       // id_tokenをメイントークンとして保存（ユーザー情報取得用）
       authManager.setToken(idToken);
       
-      console.log('OAuth 2.0トークンを初期化しました');
+      console.log('[Auth Debug] OAuth 2.0トークンを初期化しました');
+      console.log('[Auth Debug] sessionStorage keys:', Object.keys(sessionStorage));
+      
+      // トークンのクレームを確認
+      const claims = parseJwtPayload(idToken);
+      console.log('[Auth Debug] ID Token claims:', {
+        tenant_name: claims?.tenant_name,
+        role: claims?.role,
+        email: claims?.email,
+        exp: claims?.exp,
+        iss: claims?.iss
+      });
       
       // URLからトークンパラメータを削除（セキュリティのため）
       urlParams.delete('access_token');
@@ -272,10 +302,16 @@ export function initializeTokenFromUrl(): void {
     } else if (legacyToken) {
       // レガシー形式: 単一のトークン
       authManager.setToken(legacyToken);
-      console.log('レガシートークンを初期化しました');
+      console.log('[Auth Debug] レガシートークンを初期化しました');
       
       // URLからトークンパラメータを削除（セキュリティのため）
       urlParams.delete('token');
+    } else {
+      console.log('[Auth Debug] URLにトークンパラメータが見つかりません');
+      
+      // 既存のトークンを確認
+      const existingToken = sessionStorage.getItem(ID_TOKEN_STORAGE_KEY);
+      console.log('[Auth Debug] 既存のトークン:', existingToken ? 'あり' : 'なし');
     }
     
     // URLを更新（トークンパラメータを削除）
@@ -284,9 +320,10 @@ export function initializeTokenFromUrl(): void {
         (urlParams.toString() ? '?' + urlParams.toString() : '') +
         window.location.hash;
       window.history.replaceState({}, '', newUrl);
+      console.log('[Auth Debug] URLを更新しました:', newUrl);
     }
   } catch (error) {
-    console.error('URLからのトークン初期化に失敗しました:', error);
+    console.error('[Auth Debug] URLからのトークン初期化に失敗しました:', error);
   }
 }
 
@@ -328,20 +365,29 @@ export function getAccessToken(): string | null {
  */
 export function getIdToken(): string | null {
   if (typeof window === 'undefined') {
+    console.log('[Auth Debug] getIdToken: サーバーサイドのためnullを返す');
     return null;
   }
   
   try {
     // OAuth 2.0形式のid_tokenを優先
     const idToken = sessionStorage.getItem(ID_TOKEN_STORAGE_KEY);
+    console.log('[Auth Debug] getIdToken: ID_TOKEN_STORAGE_KEY:', ID_TOKEN_STORAGE_KEY);
+    console.log('[Auth Debug] getIdToken: idToken exists:', !!idToken);
+    console.log('[Auth Debug] getIdToken: idToken length:', idToken?.length);
+    
     if (idToken) {
       return idToken;
     }
     
     // フォールバック: レガシー形式のトークン
-    return authManager.getToken();
+    const legacyToken = authManager.getToken();
+    console.log('[Auth Debug] getIdToken: legacyToken exists:', !!legacyToken);
+    console.log('[Auth Debug] getIdToken: legacyToken length:', legacyToken?.length);
+    
+    return legacyToken;
   } catch (error) {
-    console.error('IDトークンの取得に失敗しました:', error);
+    console.error('[Auth Debug] getIdToken: IDトークンの取得に失敗しました:', error);
     return null;
   }
 }
